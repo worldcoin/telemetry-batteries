@@ -32,8 +32,11 @@ pub struct DatadogBattery {
 }
 
 impl DatadogBattery {
-    pub fn new() -> Self {
-        todo!()
+    pub fn new(level: Level, service_name: &str) -> Self {
+        Self {
+            level,
+            service_name: service_name.to_string(),
+        }
     }
 }
 
