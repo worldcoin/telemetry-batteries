@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::io;
 
 use chrono::Utc;
 use opentelemetry::sdk::trace;

@@ -1,8 +1,6 @@
 use ::tracing::Level;
 use telemetry_batteries::{
-    metrics::{self, statsd::StatsdBattery},
-    tracing::{self, datadog::DatadogBattery},
-    TelemetryBatteries,
+    metrics::statsd::StatsdBattery, tracing::datadog::DatadogBattery, TelemetryBatteries,
 };
 use tracing_appender::rolling::Rotation;
 
@@ -21,7 +19,7 @@ pub fn main() -> eyre::Result<()> {
     batteries.metrics(statsd_battery);
 
     // Initialize all batteries
-    batteries.init();
+    batteries.init()?;
 
     // Once the batteries variable is dropped out of scope, all tracing providers will be shutdown
     Ok(())

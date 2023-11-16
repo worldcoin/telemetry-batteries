@@ -1,4 +1,4 @@
-use metrics_exporter_statsd::{StatsdBuilder, StatsdError, StatsdRecorder};
+use metrics_exporter_statsd::{StatsdBuilder, StatsdError};
 
 use crate::error::BatteryError;
 
