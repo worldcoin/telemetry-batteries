@@ -1,8 +1,7 @@
-use std::io;
-
 use metrics::SetRecorderError;
 use metrics_exporter_statsd::StatsdError;
 use opentelemetry::trace::TraceError;
+use std::io;
 use thiserror::Error;
 use tokio::sync::SetError;
 use tracing_appender::non_blocking::WorkerGuard;

@@ -1,14 +1,15 @@
+use super::{get_log_directory, TracingBattery};
+use crate::error::BatteryError;
+use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
 use chrono::Utc;
 use opentelemetry::sdk::trace;
 use opentelemetry::sdk::trace::Sampler;
-
 use serde::ser::SerializeMap;
 use serde::Serializer;
 use tokio::sync::OnceCell;
 use tracing::{Event, Level, Subscriber};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::Rotation;
-
 use tracing_serde::fields::AsMap;
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt;
@@ -17,11 +18,6 @@ use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
-
-use crate::error::BatteryError;
-use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
-
-use super::{get_log_directory, TracingBattery};
 
 pub const DEFAULT_AGENT_ENDPOINT: &str = "localhost:8126";
 

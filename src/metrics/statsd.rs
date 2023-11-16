@@ -1,8 +1,6 @@
-use metrics_exporter_statsd::{StatsdBuilder, StatsdError};
-
-use crate::error::BatteryError;
-
 use super::MetricsBattery;
+use crate::error::BatteryError;
+use metrics_exporter_statsd::{StatsdBuilder, StatsdError};
 
 pub struct StatsdBattery<'a> {
     pub host: &'a str,

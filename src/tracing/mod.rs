@@ -1,18 +1,14 @@
 pub mod datadog;
 
+use crate::error::BatteryError;
 use opentelemetry::trace::TraceContextExt;
-
 use std::path::PathBuf;
 use std::{fs, io};
 use tracing::Subscriber;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;
-
 use tracing_subscriber::fmt::{FmtContext, FormatFields};
-
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
-
-use crate::error::BatteryError;
 
 pub trait TracingBattery {
     fn init(&self) -> Result<(), BatteryError>;
