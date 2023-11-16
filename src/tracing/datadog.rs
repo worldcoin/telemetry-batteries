@@ -71,6 +71,7 @@ impl TracingBattery for DatadogBattery {
 
         let fmt_layer = fmt::layer().with_target(false).with_level(true);
 
+        //TODO: conditionally initialize logs
         let file_appender = tracing_appender::rolling::RollingFileAppender::new(
             self.rotation.clone(),
             get_log_directory()?,
