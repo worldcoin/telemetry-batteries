@@ -1,8 +1,10 @@
-use metrics::MetricsBattery;
-use tracing::TracingBattery;
-
+pub mod error;
 pub mod metrics;
 pub mod tracing;
+
+use error::BatteryError;
+use metrics::MetricsBattery;
+use tracing::TracingBattery;
 
 #[derive(Default)]
 pub struct TelemetryBatteries<T: TracingBattery, M: MetricsBattery> {
@@ -26,14 +28,16 @@ impl<T: TracingBattery, M: MetricsBattery> TelemetryBatteries<T, M> {
         self.metrics_battery = Some(battery);
     }
 
-    pub fn init(self) {
+    pub fn init(self) -> Result<(), BatteryError> {
         if let Some(tracing_battery) = &self.tracing_battery {
-            tracing_battery.init();
+            tracing_battery.init()?;
         }
 
         if let Some(metrics_battery) = &self.metrics_battery {
-            metrics_battery.init();
+            metrics_battery.init()?;
         }
+
+        Ok(())
     }
 }
 

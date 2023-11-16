@@ -22,6 +22,7 @@ chrono = "0.4.31"
 tracing-appender = "0.2.2"
 dirs = "5.0.1"
 metrics-exporter-statsd = "0.6.0"
+thiserror = "1.0.50"
 
 [dev-dependencies]
 eyre = "0.6.8"

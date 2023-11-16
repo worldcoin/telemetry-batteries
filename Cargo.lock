@@ -1147,6 +1147,7 @@ dependencies = [
  "opentelemetry-http",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-appender",

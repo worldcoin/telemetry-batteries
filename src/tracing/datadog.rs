@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::{fs, io};
 
 use chrono::Utc;
@@ -10,15 +9,18 @@ use serde::Serializer;
 use tokio::sync::OnceCell;
 use tracing::{Event, Level, Subscriber};
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_opentelemetry::{OpenTelemetrySpanExt, OtelData};
+use tracing_appender::rolling::Rotation;
+use tracing_opentelemetry::OtelData;
 use tracing_serde::fields::AsMap;
 use tracing_serde::AsSerde;
+use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
+
+use crate::error::BatteryError;
 
 use super::{get_log_directory, TracingBattery};
 
@@ -27,19 +29,21 @@ static WORKER_GUARD: OnceCell<WorkerGuard> = OnceCell::const_new();
 pub struct DatadogBattery {
     pub level: Level,
     pub service_name: String,
+    pub rotation: Rotation,
 }
 
 impl DatadogBattery {
-    pub fn new(level: Level, service_name: &str) -> Self {
+    pub fn new(level: Level, service_name: &str, rotation: Rotation) -> Self {
         Self {
             level,
             service_name: service_name.to_string(),
+            rotation,
         }
     }
 }
 
 impl TracingBattery for DatadogBattery {
-    fn init(&self) {
+    fn init(&self) -> Result<(), BatteryError> {
         let service_name = self.service_name.as_str();
 
         let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
@@ -48,8 +52,7 @@ impl TracingBattery for DatadogBattery {
             .with_trace_config(tracer_config)
             .with_service_name(service_name)
             .with_api_version(opentelemetry_datadog::ApiVersion::Version05)
-            .install_batch(opentelemetry::runtime::Tokio)
-            .expect("Could not initialize tracer");
+            .install_batch(opentelemetry::runtime::Tokio)?;
 
         let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
 
@@ -59,15 +62,14 @@ impl TracingBattery for DatadogBattery {
         let fmt_layer = fmt::layer().with_target(false).with_level(true);
 
         let file_appender = tracing_appender::rolling::RollingFileAppender::new(
-            //TODO: do we want this to be dynamic
-            tracing_appender::rolling::Rotation::DAILY,
-            get_log_directory().expect("TODO:handle this error"),
+            self.rotation.clone(),
+            get_log_directory()?,
             format!("{service_name}.log"),
         );
 
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
-        WORKER_GUARD.set(guard).expect("Could not set worker guard");
+        WORKER_GUARD.set(guard)?;
 
         let dd_layer = fmt::Layer::new()
             .json()
@@ -80,6 +82,8 @@ impl TracingBattery for DatadogBattery {
             .with(dd_layer)
             .with(otel_layer)
             .init();
+
+        Ok(())
     }
 }
 

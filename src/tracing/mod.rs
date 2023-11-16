@@ -4,8 +4,10 @@ use std::path::PathBuf;
 use std::{fs, io};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
+use crate::error::BatteryError;
+
 pub trait TracingBattery {
-    fn init(&self);
+    fn init(&self) -> Result<(), BatteryError>;
 }
 
 pub fn trace_from_headers(headers: &http::HeaderMap) {

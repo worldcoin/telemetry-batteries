@@ -4,6 +4,7 @@ use telemetry_batteries::{
     tracing::{self, datadog::DatadogBattery},
     TelemetryBatteries,
 };
+use tracing_appender::rolling::Rotation;
 
 pub const SERVICE_NAME: &str = "datadog-example";
 
@@ -11,7 +12,7 @@ pub fn main() -> eyre::Result<()> {
     let mut batteries = TelemetryBatteries::new();
 
     // Add a new DatadogBattery for tracing/logs
-    let datadog_battery = DatadogBattery::new(Level::INFO, SERVICE_NAME);
+    let datadog_battery = DatadogBattery::new(Level::INFO, SERVICE_NAME, Rotation::DAILY);
     batteries.tracing(datadog_battery);
 
     // Add a new StatsdBattery for metrics
