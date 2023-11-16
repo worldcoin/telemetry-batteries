@@ -10,7 +10,7 @@ pub fn main() -> eyre::Result<()> {
     let mut batteries = TelemetryBatteries::new();
 
     // Add a new DatadogBattery for tracing/logs
-    let datadog_battery = DatadogBattery::new(Level::INFO, SERVICE_NAME, Rotation::DAILY);
+    let datadog_battery = DatadogBattery::new(Level::INFO, SERVICE_NAME, Rotation::DAILY, None);
     batteries.tracing(datadog_battery);
 
     // Add a new StatsdBattery for metrics

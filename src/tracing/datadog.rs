@@ -24,20 +24,29 @@ use crate::error::BatteryError;
 
 use super::{get_log_directory, TracingBattery};
 
+pub const DEFAULT_AGENT_ENDPOINT: &str = "localhost:8126";
+
 static WORKER_GUARD: OnceCell<WorkerGuard> = OnceCell::const_new();
 
 pub struct DatadogBattery {
+    pub endpoint: String,
     pub level: Level,
     pub service_name: String,
     pub rotation: Rotation,
 }
 
 impl DatadogBattery {
-    pub fn new(level: Level, service_name: &str, rotation: Rotation) -> Self {
+    pub fn new(
+        level: Level,
+        service_name: &str,
+        rotation: Rotation,
+        endpoint: Option<&str>,
+    ) -> Self {
         Self {
             level,
             service_name: service_name.to_string(),
             rotation,
+            endpoint: endpoint.unwrap_or(DEFAULT_AGENT_ENDPOINT).to_string(),
         }
     }
 }
@@ -49,6 +58,7 @@ impl TracingBattery for DatadogBattery {
         let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
 
         let tracer = opentelemetry_datadog::new_pipeline()
+            .with_agent_endpoint(self.endpoint.clone())
             .with_trace_config(tracer_config)
             .with_service_name(service_name)
             .with_api_version(opentelemetry_datadog::ApiVersion::Version05)
