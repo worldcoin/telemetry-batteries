@@ -4,6 +4,10 @@ use std::path::PathBuf;
 use std::{fs, io};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
+pub trait TracingBattery {
+    fn init(&self);
+}
+
 pub fn trace_from_headers(headers: &http::HeaderMap) {
     tracing::Span::current().set_parent(opentelemetry::global::get_text_map_propagator(
         |propagator| propagator.extract(&opentelemetry_http::HeaderExtractor(headers)),

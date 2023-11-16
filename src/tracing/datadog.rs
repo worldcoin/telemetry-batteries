@@ -20,9 +20,7 @@ use tracing_subscriber::registry::{LookupSpan, SpanRef};
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
 
-use crate::TelemetryBattery;
-
-use super::get_log_directory;
+use super::{get_log_directory, TracingBattery};
 
 static WORKER_GUARD: OnceCell<WorkerGuard> = OnceCell::const_new();
 
@@ -40,7 +38,7 @@ impl DatadogBattery {
     }
 }
 
-impl TelemetryBattery for DatadogBattery {
+impl TracingBattery for DatadogBattery {
     fn init(&self) {
         let service_name = self.service_name.as_str();
 

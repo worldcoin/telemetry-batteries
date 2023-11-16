@@ -1,6 +1,6 @@
 use metrics_exporter_statsd::{StatsdBuilder, StatsdError, StatsdRecorder};
 
-use crate::TelemetryBattery;
+use super::MetricsBattery;
 
 pub struct StatsdBattery<'a> {
     pub host: &'a str,
@@ -28,7 +28,7 @@ impl<'a> StatsdBattery<'a> {
     }
 }
 
-impl<'a> TelemetryBattery for StatsdBattery<'a> {
+impl<'a> MetricsBattery for StatsdBattery<'a> {
     fn init(&self) {
         let recorder = StatsdBuilder::from(self.host, self.port)
             .with_queue_size(self.queue_size)

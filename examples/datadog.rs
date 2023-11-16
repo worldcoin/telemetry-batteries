@@ -1,5 +1,9 @@
 use ::tracing::Level;
-use telemetry_batteries::{metrics, tracing, TelemetryBatteries};
+use telemetry_batteries::{
+    metrics::{self, statsd::StatsdBattery},
+    tracing::{self, datadog::DatadogBattery},
+    TelemetryBatteries,
+};
 
 pub const SERVICE_NAME: &str = "datadog-example";
 
@@ -7,13 +11,13 @@ pub fn main() -> eyre::Result<()> {
     let mut batteries = TelemetryBatteries::new();
 
     // Add a new DatadogBattery for tracing/logs
-    let datadog_battery = tracing::datadog::DatadogBattery::new(Level::INFO, SERVICE_NAME);
-    batteries.add_battery(datadog_battery);
+    let datadog_battery = DatadogBattery::new(Level::INFO, SERVICE_NAME);
+    batteries.tracing(datadog_battery);
 
     // Add a new StatsdBattery for metrics
-    let statsd_battery = metrics::statsd::StatsdBattery::new("localhost", 8125, 5000, 1024, None)
+    let statsd_battery = StatsdBattery::new("localhost", 8125, 5000, 1024, None)
         .expect("Failed to create StatsdBattery");
-    batteries.add_battery(statsd_battery);
+    batteries.metrics(statsd_battery);
 
     // Initialize all batteries
     batteries.init();
