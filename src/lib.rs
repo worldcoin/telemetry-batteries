@@ -1,10 +1,10 @@
 pub mod error;
-pub mod metrics;
-pub mod tracing;
+pub mod metrics_batteries;
+pub mod tracing_batteries;
 
 use error::BatteryError;
-use metrics::MetricsBattery;
-use tracing::TracingBattery;
+use metrics_batteries::MetricsBattery;
+use tracing_batteries::TracingBattery;
 
 #[derive(Default)]
 pub struct TelemetryBatteries<T: TracingBattery, M: MetricsBattery> {

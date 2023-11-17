@@ -1,6 +1,6 @@
 use super::{get_log_directory, TracingBattery};
 use crate::error::BatteryError;
-use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
+use crate::tracing_batteries::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
 use chrono::Utc;
 use opentelemetry::sdk::trace;
 use opentelemetry::sdk::trace::Sampler;

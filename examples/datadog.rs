@@ -1,6 +1,7 @@
 use ::tracing::Level;
 use telemetry_batteries::{
-    metrics::statsd::StatsdBattery, tracing::datadog::DatadogBattery, TelemetryBatteries,
+    metrics_batteries::statsd::StatsdBattery, tracing_batteries::datadog::DatadogBattery,
+    TelemetryBatteries,
 };
 use tracing_appender::rolling::Rotation;
 
@@ -19,6 +20,9 @@ pub fn main() -> eyre::Result<()> {
 
     // Initialize all batteries
     batteries.init()?;
+
+    tracing::info!("foo");
+    metrics::increment_counter!("bar");
 
     // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped.
     Ok(())
