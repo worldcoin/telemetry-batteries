@@ -20,12 +20,14 @@ impl<T: TracingBattery, M: MetricsBattery> TelemetryBatteries<T, M> {
         }
     }
 
-    pub fn tracing(&mut self, battery: T) {
+    pub fn tracing(mut self, battery: T) -> Self {
         self.tracing_battery = Some(battery);
+        self
     }
 
-    pub fn metrics(&mut self, battery: M) {
+    pub fn metrics(mut self, battery: M) -> Self {
         self.metrics_battery = Some(battery);
+        self
     }
 
     pub fn init(self) -> Result<(), BatteryError> {
