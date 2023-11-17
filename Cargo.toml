@@ -19,7 +19,7 @@ thiserror = "1.0.50"
 tokio = "1.33.0"
 tracing = "0.1.40"
 tracing-appender = "0.2.2"
-tracing-opentelemetry = "0.21.0"
+tracing-opentelemetry = "0.22.0"
 tracing-serde = "0.1.3"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
 
