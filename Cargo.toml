@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.31"
 dirs = "5.0.1"
-http = "0.2.9"
+http = "1.0.0"
 metrics = "0.21.1"
 metrics-exporter-statsd = "0.6.0"
 opentelemetry = { version = "0.20.0", features = ["rt-tokio"] }
