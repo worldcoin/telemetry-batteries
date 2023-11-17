@@ -21,6 +21,6 @@ pub fn main() -> eyre::Result<()> {
     // Initialize all batteries
     batteries.init()?;
 
-    // Once the batteries variable is dropped out of scope, all tracing providers will be shutdown
+    // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped
     Ok(())
 }

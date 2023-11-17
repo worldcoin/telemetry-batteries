@@ -2,7 +2,6 @@ pub mod error;
 pub mod metrics;
 pub mod tracing;
 
-use ::tracing::warn;
 use error::BatteryError;
 use metrics::MetricsBattery;
 use tracing::TracingBattery;
@@ -39,12 +38,5 @@ impl<T: TracingBattery, M: MetricsBattery> TelemetryBatteries<T, M> {
         }
 
         Ok(())
-    }
-}
-
-impl<T: TracingBattery, M: MetricsBattery> Drop for TelemetryBatteries<T, M> {
-    fn drop(&mut self) {
-        warn!("Shutting down tracing provider");
-        opentelemetry::global::shutdown_tracer_provider();
     }
 }

@@ -4,11 +4,22 @@ use crate::error::BatteryError;
 use opentelemetry::trace::TraceContextExt;
 use std::path::PathBuf;
 use std::{fs, io};
-use tracing::Subscriber;
+use tracing::{warn, Subscriber};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;
 use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
+
+pub static TRACING_PROVIDER_GUARD: TracingProviderGuard = TracingProviderGuard;
+
+pub struct TracingProviderGuard;
+
+impl Drop for TracingProviderGuard {
+    fn drop(&mut self) {
+        warn!("Shutting down tracing provider");
+        opentelemetry::global::shutdown_tracer_provider();
+    }
+}
 
 pub trait TracingBattery {
     fn init(&self) -> Result<(), BatteryError>;
