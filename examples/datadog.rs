@@ -14,13 +14,12 @@ pub fn main() -> eyre::Result<()> {
     batteries.tracing(datadog_battery);
 
     // Add a new StatsdBattery for metrics
-    let statsd_battery = StatsdBattery::new("localhost", 8125, 5000, 1024, None)
-        .expect("Failed to create StatsdBattery");
+    let statsd_battery = StatsdBattery::new("localhost", 8125, 5000, 1024, None)?;
     batteries.metrics(statsd_battery);
 
     // Initialize all batteries
     batteries.init()?;
 
-    // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped
+    // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped.
     Ok(())
 }
