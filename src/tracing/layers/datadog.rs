@@ -24,7 +24,7 @@ impl DatadogLayer {
         level: Level,
     ) -> Result<impl Layer<S>, BatteryError>
     where
-        S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+        S: Subscriber + for<'a> LookupSpan<'a>,
     {
         let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
 
@@ -48,7 +48,7 @@ pub struct DatadogFormatLayer;
 impl DatadogFormatLayer {
     pub fn layer<S>() -> impl Layer<S>
     where
-        S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+        S: Subscriber + for<'a> LookupSpan<'a>,
     {
         fmt::Layer::new().json().event_format(DatadogFormat)
     }
