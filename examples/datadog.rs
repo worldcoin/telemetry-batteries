@@ -13,7 +13,6 @@ pub fn main() -> eyre::Result<()> {
 
     // Add a new StatsdBattery for metrics
     let statsd_battery = StatsdBattery::new("localhost", 8125, 5000, 1024, None)?;
-
     statsd_battery.init()?;
 
     tracing::info!("foo");
