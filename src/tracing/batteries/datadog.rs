@@ -1,16 +1,11 @@
+use super::TracingBattery;
 use crate::error::BatteryError;
 use crate::tracing::layers::datadog::DatadogLayer;
-use crate::tracing::layers::StdoutLayer;
-
 use tokio::sync::OnceCell;
 use tracing::Level;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::RollingFileAppender;
-
-use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
-
-use super::TracingBattery;
 
 pub const DEFAULT_AGENT_ENDPOINT: &str = "localhost:8126";
 
@@ -41,7 +36,7 @@ impl DatadogBattery {
 
 impl DatadogBattery {
     pub fn init(self) -> Result<(), BatteryError> {
-        let datadog_layer = DatadogLayer::new(&self.service_name, &self.endpoint, self.level)?;
+        let datadog_layer = DatadogLayer::layer(&self.service_name, &self.endpoint, self.level)?;
 
         if let Some(file_appender) = self.file_appender {
             let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);

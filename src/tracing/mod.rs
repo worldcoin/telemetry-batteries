@@ -9,7 +9,6 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;
 use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
-
 pub use tracing_subscriber::Registry;
 
 pub static TRACING_PROVIDER_GUARD: TracingProviderGuard = TracingProviderGuard;

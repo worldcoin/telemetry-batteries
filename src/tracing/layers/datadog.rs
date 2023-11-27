@@ -18,7 +18,7 @@ use tracing_subscriber::{fmt, EnvFilter, Layer};
 pub struct DatadogLayer;
 
 impl DatadogLayer {
-    pub fn new<S>(
+    pub fn layer<S>(
         service_name: &str,
         endpoint: &str,
         level: Level,
