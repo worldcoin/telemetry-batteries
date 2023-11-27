@@ -37,7 +37,7 @@ impl DatadogLayer {
 
         let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
         let filter = EnvFilter::from_default_env().add_directive(level.into());
-        let dd_format_layer = DatadogFormatLayer::new();
+        let dd_format_layer = DatadogFormatLayer::layer();
 
         Ok(filter.and_then(dd_format_layer).and_then(otel_layer))
     }
@@ -46,7 +46,7 @@ impl DatadogLayer {
 pub struct DatadogFormatLayer;
 
 impl DatadogFormatLayer {
-    pub fn new<S>() -> impl Layer<S>
+    pub fn layer<S>() -> impl Layer<S>
     where
         S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
     {

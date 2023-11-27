@@ -1,22 +1,12 @@
 use crate::error::BatteryError;
 use crate::tracing::layers::datadog::DatadogLayer;
 use crate::tracing::layers::StdoutLayer;
-use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
-use chrono::Utc;
-use opentelemetry::sdk::trace;
-use opentelemetry::sdk::trace::Sampler;
-use serde::ser::SerializeMap;
-use serde::Serializer;
+
 use tokio::sync::OnceCell;
-use tracing::{Event, Level, Subscriber};
+use tracing::Level;
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_serde::fields::AsMap;
-use tracing_serde::AsSerde;
-use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
-use tracing_subscriber::registry::LookupSpan;
+use tracing_appender::rolling::RollingFileAppender;
+
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
@@ -61,10 +51,7 @@ impl DatadogBattery {
             let layers = datadog_layer.and_then(file_layer);
             TracingBattery::init(layers);
         } else {
-            let std_out_layer = StdoutLayer::new(self.level);
-            let layers = datadog_layer.and_then(std_out_layer);
-
-            TracingBattery::init(layers);
+            TracingBattery::init(datadog_layer);
         }
 
         Ok(())

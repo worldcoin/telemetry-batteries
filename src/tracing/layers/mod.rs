@@ -6,7 +6,7 @@ pub mod datadog;
 pub struct StdoutLayer;
 
 impl StdoutLayer {
-    pub fn new<S>(level: Level) -> impl Layer<S>
+    pub fn layer<S>(level: Level) -> impl Layer<S>
     where
         S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
     {
