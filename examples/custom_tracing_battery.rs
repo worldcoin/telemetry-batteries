@@ -8,5 +8,6 @@ pub fn main() -> eyre::Result<()> {
 
     tracing::info!("foo");
 
+    // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped.
     Ok(())
 }
