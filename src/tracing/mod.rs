@@ -1,6 +1,6 @@
-pub mod datadog;
+pub mod batteries;
+pub mod layers;
 
-use crate::error::BatteryError;
 use opentelemetry::trace::TraceContextExt;
 use std::path::PathBuf;
 use std::{fs, io};
@@ -9,6 +9,8 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;
 use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
+
+pub use tracing_subscriber::Registry;
 
 pub static TRACING_PROVIDER_GUARD: TracingProviderGuard = TracingProviderGuard;
 
@@ -19,10 +21,6 @@ impl Drop for TracingProviderGuard {
         tracing::warn!("Shutting down tracing provider");
         opentelemetry::global::shutdown_tracer_provider();
     }
-}
-
-pub trait TracingBattery {
-    fn init(&self) -> Result<(), BatteryError>;
 }
 
 pub fn trace_from_headers(headers: &http::HeaderMap) {

@@ -1,101 +1,62 @@
-use super::{get_log_directory, TracingBattery};
 use crate::error::BatteryError;
-use crate::tracing_batteries::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
+use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
 use chrono::Utc;
 use opentelemetry::sdk::trace;
 use opentelemetry::sdk::trace::Sampler;
+use opentelemetry_datadog::ApiVersion;
 use serde::ser::SerializeMap;
 use serde::Serializer;
-use tokio::sync::OnceCell;
 use tracing::{Event, Level, Subscriber};
-use tracing_appender::non_blocking::WorkerGuard;
-use tracing_appender::rolling::Rotation;
 use tracing_serde::fields::AsMap;
 use tracing_serde::AsSerde;
-use tracing_subscriber::fmt;
 use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
+use tracing_subscriber::fmt::FormatEvent;
+use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, EnvFilter, Layer};
 
-pub const DEFAULT_AGENT_ENDPOINT: &str = "localhost:8126";
+pub struct DatadogLayer;
 
-static WORKER_GUARD: OnceCell<WorkerGuard> = OnceCell::const_new();
-
-pub struct DatadogBattery {
-    pub endpoint: String,
-    pub level: Level,
-    pub service_name: String,
-    pub rotation: Rotation,
-}
-
-impl DatadogBattery {
-    pub fn new(
-        level: Level,
+impl DatadogLayer {
+    pub fn new<S>(
         service_name: &str,
-        rotation: Rotation,
-        endpoint: Option<&str>,
-    ) -> Self {
-        Self {
-            level,
-            service_name: service_name.to_string(),
-            rotation,
-            endpoint: endpoint.unwrap_or(DEFAULT_AGENT_ENDPOINT).to_string(),
-        }
-    }
-}
-
-impl TracingBattery for DatadogBattery {
-    fn init(&self) -> Result<(), BatteryError> {
-        let service_name = self.service_name.as_str();
-
+        endpoint: &str,
+        level: Level,
+    ) -> Result<impl Layer<S>, BatteryError>
+    where
+        S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+    {
         let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
 
         let tracer = opentelemetry_datadog::new_pipeline()
-            .with_agent_endpoint(self.endpoint.clone())
+            .with_agent_endpoint(endpoint)
             .with_trace_config(tracer_config)
             .with_service_name(service_name)
-            .with_api_version(opentelemetry_datadog::ApiVersion::Version05)
+            .with_api_version(ApiVersion::Version05)
             .install_batch(opentelemetry::runtime::Tokio)?;
 
         let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
+        let filter = EnvFilter::from_default_env().add_directive(level.into());
+        let dd_format_layer = DatadogFormatLayer::new();
 
-        let filter = tracing_subscriber::filter::EnvFilter::from_default_env()
-            .add_directive(self.level.into());
-
-        let fmt_layer = fmt::layer().with_target(false).with_level(true);
-
-        //TODO: conditionally initialize logs
-        let file_appender = tracing_appender::rolling::RollingFileAppender::new(
-            self.rotation.clone(),
-            get_log_directory()?,
-            format!("{service_name}.log"),
-        );
-
-        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-
-        WORKER_GUARD.set(guard)?;
-
-        let dd_layer = fmt::Layer::new()
-            .json()
-            .event_format(DataDogFormat)
-            .with_writer(non_blocking);
-
-        tracing_subscriber::registry()
-            .with(filter)
-            .with(fmt_layer)
-            .with(dd_layer)
-            .with(otel_layer)
-            .init();
-
-        Ok(())
+        Ok(filter.and_then(dd_format_layer).and_then(otel_layer))
     }
 }
 
-pub struct DataDogFormat;
+pub struct DatadogFormatLayer;
 
-impl<S, N> FormatEvent<S, N> for DataDogFormat
+impl DatadogFormatLayer {
+    pub fn new<S>() -> impl Layer<S>
+    where
+        S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+    {
+        fmt::Layer::new().json().event_format(DatadogFormat)
+    }
+}
+
+pub struct DatadogFormat;
+
+impl<S, N> FormatEvent<S, N> for DatadogFormat
 where
     S: Subscriber + for<'lookup> LookupSpan<'lookup>,
     N: for<'writer> FormatFields<'writer> + 'static,
