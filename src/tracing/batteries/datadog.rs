@@ -7,7 +7,7 @@ use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::RollingFileAppender;
 use tracing_subscriber::Layer;
 
-pub const DEFAULT_AGENT_ENDPOINT: &str = "localhost:8126";
+pub const DEFAULT_AGENT_ENDPOINT: &str = "http://localhost:8126";
 
 static WORKER_GUARD: OnceCell<WorkerGuard> = OnceCell::const_new();
 
