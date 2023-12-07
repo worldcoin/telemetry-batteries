@@ -16,6 +16,7 @@ pub struct DatadogBattery {
     pub env_filter: EnvFilter,
     pub service_name: String,
     pub file_appender: Option<RollingFileAppender>,
+    pub location: bool,
 }
 
 impl DatadogBattery {
@@ -29,15 +30,25 @@ impl DatadogBattery {
             service_name: service_name.to_string(),
             endpoint: endpoint.unwrap_or(DEFAULT_AGENT_ENDPOINT).to_string(),
             file_appender,
+            location: false,
         }
+    }
+
+    pub fn with_location(mut self) -> Self {
+        self.location = true;
+        self
     }
 }
 
 impl DatadogBattery {
     pub fn init(self) -> Result<(), BatteryError> {
-        let datadog_layer =
-            DatadogLayer::new(&self.service_name, &self.endpoint)
-                .into_layer()?;
+        let mut datadog_layer =
+            DatadogLayer::new(&self.service_name, &self.endpoint);
+
+        datadog_layer.location = self.location;
+        datadog_layer.env_filter = self.env_filter;
+
+        let datadog_layer = datadog_layer.into_layer()?;
 
         if let Some(file_appender) = self.file_appender {
             let (non_blocking, guard) =

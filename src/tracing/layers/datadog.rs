@@ -20,7 +20,6 @@ pub struct DatadogLayer {
     pub service_name: String,
     pub endpoint: String,
     pub env_filter: EnvFilter,
-    pub tracing: bool,
     pub location: bool,
 }
 
@@ -30,7 +29,6 @@ impl DatadogLayer {
             service_name: service_name.to_string(),
             endpoint: endpoint.to_string(),
             env_filter: EnvFilter::from_default_env(),
-            tracing: false,
             location: false,
         }
     }
@@ -49,8 +47,7 @@ impl DatadogLayer {
             .install_batch(opentelemetry::runtime::Tokio)?;
 
         let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
-        let dd_format_layer =
-            DatadogFormatLayer::layer(self.tracing, self.location);
+        let dd_format_layer = DatadogFormatLayer::layer(self.location);
 
         Ok(self
             .env_filter
@@ -62,18 +59,17 @@ impl DatadogLayer {
 pub struct DatadogFormatLayer;
 
 impl DatadogFormatLayer {
-    pub fn layer<S>(tracing: bool, location: bool) -> impl Layer<S>
+    pub fn layer<S>(location: bool) -> impl Layer<S>
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
     {
         fmt::Layer::new()
             .json()
-            .event_format(DatadogFormat { tracing, location })
+            .event_format(DatadogFormat { location })
     }
 }
 
 pub struct DatadogFormat {
-    tracing: bool,
     location: bool,
 }
 
@@ -117,18 +113,16 @@ where
             event.record(&mut visitor);
             serializer = visitor.take_serializer()?;
 
-            if self.tracing {
-                if let Some(trace_id) = trace_id {
-                    // The opentelemetry-datadog crate truncates the 128-bit trace-id
-                    // into a u64 before formatting it.
-                    let trace_id = format!("{}", trace_id as u64);
-                    serializer.serialize_entry("dd.trace_id", &trace_id)?;
-                }
+            if let Some(trace_id) = trace_id {
+                // The opentelemetry-datadog crate truncates the 128-bit trace-id
+                // into a u64 before formatting it.
+                let trace_id = format!("{}", trace_id as u64);
+                serializer.serialize_entry("dd.trace_id", &trace_id)?;
+            }
 
-                if let Some(span_id) = span_id {
-                    let span_id = format!("{}", span_id);
-                    serializer.serialize_entry("dd.span_id", &span_id)?;
-                }
+            if let Some(span_id) = span_id {
+                let span_id = format!("{}", span_id);
+                serializer.serialize_entry("dd.span_id", &span_id)?;
             }
 
             serializer.end()
