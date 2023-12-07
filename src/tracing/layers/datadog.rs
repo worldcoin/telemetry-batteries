@@ -1,5 +1,3 @@
-use crate::error::BatteryError;
-use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
 use chrono::Utc;
 use opentelemetry::sdk::trace;
 use opentelemetry::sdk::trace::Sampler;
@@ -7,13 +5,14 @@ use opentelemetry_datadog::ApiVersion;
 use serde::ser::SerializeMap;
 use serde::Serializer;
 use tracing::{Event, Level, Subscriber};
-use tracing_serde::fields::AsMap;
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::FormatEvent;
-use tracing_subscriber::fmt::{FmtContext, FormatFields};
+use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
+
+use crate::error::BatteryError;
+use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
 
 pub struct DatadogLayer;
 
@@ -81,8 +80,11 @@ where
 
             serializer.serialize_entry("timestamp", &Utc::now().to_rfc3339())?;
             serializer.serialize_entry("level", &meta.level().as_serde())?;
-            serializer.serialize_entry("fields", &event.field_map())?;
             serializer.serialize_entry("target", meta.target())?;
+
+            let mut visitor = tracing_serde::SerdeMapVisitor::new(serializer);
+            event.record(&mut visitor);
+            serializer = visitor.take_serializer()?;
 
             if let Some(trace_id) = trace_id {
                 // The opentelemetry-datadog crate truncates the 128-bit trace-id
