@@ -23,9 +23,11 @@ impl Drop for TracingProviderGuard {
 }
 
 pub fn trace_from_headers(headers: &http::HeaderMap) {
-    tracing::Span::current().set_parent(opentelemetry::global::get_text_map_propagator(
-        |propagator| propagator.extract(&opentelemetry_http::HeaderExtractor(headers)),
-    ));
+    tracing::Span::current().set_parent(
+        opentelemetry::global::get_text_map_propagator(|propagator| {
+            propagator.extract(&opentelemetry_http::HeaderExtractor(headers))
+        }),
+    );
 }
 
 pub fn trace_to_headers(headers: &mut http::HeaderMap) {
@@ -96,7 +98,9 @@ where
     }
 }
 
-fn span_from_ctx<'a, S, N>(ctx: &'a FmtContext<'a, S, N>) -> Option<SpanRef<'a, S>>
+fn span_from_ctx<'a, S, N>(
+    ctx: &'a FmtContext<'a, S, N>,
+) -> Option<SpanRef<'a, S>>
 where
     S: Subscriber + for<'lookup> LookupSpan<'lookup>,
     N: for<'writer> FormatFields<'writer> + 'static,
@@ -118,8 +122,8 @@ impl<'a> WriteAdapter<'a> {
 
 impl<'a> io::Write for WriteAdapter<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let s =
-            std::str::from_utf8(buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let s = std::str::from_utf8(buf)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         self.fmt_write
             .write_str(s)
