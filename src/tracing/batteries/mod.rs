@@ -1,4 +1,6 @@
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry};
+use tracing_subscriber::{
+    layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry,
+};
 
 pub mod datadog;
 
