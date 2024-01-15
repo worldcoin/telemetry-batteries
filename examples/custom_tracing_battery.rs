@@ -3,7 +3,7 @@ use telemetry_batteries::tracing::{
 };
 
 pub fn main() -> eyre::Result<()> {
-    let datadog_format_layer = DatadogFormatLayer::layer();
+    let datadog_format_layer = DatadogFormatLayer::layer(false);
     TracingBattery::init(datadog_format_layer);
 
     tracing::info!("foo");
