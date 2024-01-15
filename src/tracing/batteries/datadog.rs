@@ -44,9 +44,9 @@ impl DatadogBattery {
             let file_layer = tracing_subscriber::fmt::layer().with_writer(non_blocking);
 
             let layers = datadog_layer.and_then(file_layer);
-            TracingBattery::init(layers);
+            TracingBattery::init(Some(layers));
         } else {
-            TracingBattery::init(datadog_layer);
+            TracingBattery::init(Some(datadog_layer));
         }
 
         Ok(())

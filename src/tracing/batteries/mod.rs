@@ -5,7 +5,7 @@ pub mod datadog;
 pub struct TracingBattery;
 
 impl TracingBattery {
-    pub fn init<L>(layers: L)
+    pub fn init<L>(layers: Option<L>)
     where
         L: Layer<Registry> + Send + Sync,
     {
