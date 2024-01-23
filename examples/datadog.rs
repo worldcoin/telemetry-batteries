@@ -1,4 +1,4 @@
-use telemetry_batteries::metrics::statsd::StatsdBattery;
+use telemetry_batteries::metrics::batteries::StatsdBattery;
 use telemetry_batteries::tracing::batteries::DatadogBattery;
 
 pub const SERVICE_NAME: &str = "datadog-example";

@@ -1,3 +1,1 @@
-use crate::error::BatteryError;
-
-pub mod statsd;
+pub mod batteries;
