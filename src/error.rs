@@ -6,6 +6,7 @@ use thiserror::Error;
 use tokio::sync::SetError;
 use tracing_appender::non_blocking::WorkerGuard;
 
+// TODO: do we want this?
 #[derive(Error, Debug)]
 pub enum BatteryError {
     #[error(transparent)]

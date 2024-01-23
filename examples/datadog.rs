@@ -1,22 +1,14 @@
-use ::tracing::Level;
 use telemetry_batteries::metrics::statsd::StatsdBattery;
-use telemetry_batteries::metrics::MetricsBattery;
-use telemetry_batteries::tracing::batteries::datadog::DatadogBattery;
+use telemetry_batteries::tracing::batteries::DatadogBattery;
 
 pub const SERVICE_NAME: &str = "datadog-example";
 
 pub fn main() -> eyre::Result<()> {
     // Add a new DatadogBattery for tracing/logs
-    let mut datadog_battery = DatadogBattery::new(None, SERVICE_NAME, None);
-    datadog_battery.env_filter =
-        datadog_battery.env_filter.add_directive(Level::INFO.into());
-
-    datadog_battery.init()?;
+    DatadogBattery::init(None, SERVICE_NAME, None, true)?;
 
     // Add a new StatsdBattery for metrics
-    let statsd_battery =
-        StatsdBattery::new("localhost", 8125, 5000, 1024, None)?;
-    statsd_battery.init()?;
+    StatsdBattery::init("localhost", 8125, 5000, 1024, None)?;
 
     tracing::info!("foo");
     metrics::increment_counter!("bar");

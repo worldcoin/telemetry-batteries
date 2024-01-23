@@ -1,39 +1,20 @@
-use super::MetricsBattery;
 use crate::error::BatteryError;
-use metrics_exporter_statsd::{StatsdBuilder, StatsdError};
+use metrics_exporter_statsd::StatsdBuilder;
 
-pub struct StatsdBattery<'a> {
-    pub host: &'a str,
-    pub port: u16,
-    pub queue_size: usize,
-    pub buffer_size: usize,
-    pub prefix: Option<&'a str>,
-}
+pub struct StatsdBattery;
 
-impl<'a> StatsdBattery<'a> {
-    pub fn new(
-        host: &'a str,
+impl StatsdBattery {
+    pub fn init(
+        host: &str,
         port: u16,
         queue_size: usize,
         buffer_size: usize,
-        prefix: Option<&'a str>,
-    ) -> Result<Self, StatsdError> {
-        Ok(StatsdBattery {
-            host,
-            port,
-            queue_size,
-            buffer_size,
-            prefix,
-        })
-    }
-}
-
-impl<'a> MetricsBattery for StatsdBattery<'a> {
-    fn init(&self) -> Result<(), BatteryError> {
-        let recorder = StatsdBuilder::from(self.host, self.port)
-            .with_queue_size(self.queue_size)
-            .with_buffer_size(self.buffer_size)
-            .build(self.prefix)?;
+        prefix: Option<&str>,
+    ) -> Result<(), BatteryError> {
+        let recorder = StatsdBuilder::from(host, port)
+            .with_queue_size(queue_size)
+            .with_buffer_size(buffer_size)
+            .build(prefix)?;
 
         metrics::set_boxed_recorder(Box::new(recorder))?;
 
