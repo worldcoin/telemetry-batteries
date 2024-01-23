@@ -1,18 +1,28 @@
-use tracing::{Level, Subscriber};
-use tracing_subscriber::{fmt, registry::LookupSpan, EnvFilter, Layer};
+use std::io::Write;
+
+use tokio::sync::OnceCell;
+use tracing::Subscriber;
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::{fmt, registry::LookupSpan, Layer};
 
 pub mod datadog;
 
-pub struct StdoutLayer;
+pub fn stdout_layer<S>() -> impl Layer<S>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    fmt::layer().with_target(false).with_level(true)
+}
 
-impl StdoutLayer {
-    pub fn layer<S>(level: Level) -> impl Layer<S>
-    where
-        S: Subscriber + for<'a> LookupSpan<'a>,
-    {
-        let filter = EnvFilter::from_default_env().add_directive(level.into());
-        let fmt_layer = fmt::layer().with_target(false).with_level(true);
+static WORKER_GUARD: OnceCell<WorkerGuard> = OnceCell::const_new();
 
-        filter.and_then(fmt_layer)
-    }
+pub fn non_blocking_writer_layer<S, W>(writer: W) -> impl Layer<S>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    W: Write + Send + Sync + 'static,
+{
+    let (non_blocking, guard) = tracing_appender::non_blocking(writer);
+    WORKER_GUARD.set(guard).expect("Could not set worker guard");
+
+    tracing_subscriber::fmt::layer().with_writer(non_blocking)
 }

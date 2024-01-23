@@ -9,64 +9,43 @@ use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::{fmt, EnvFilter, Layer};
+use tracing_subscriber::{fmt, Layer};
 
-use crate::error::BatteryError;
 use crate::tracing::{
     opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
 };
 
-pub struct DatadogLayer {
-    pub service_name: String,
-    pub endpoint: String,
-    pub env_filter: EnvFilter,
-    pub location: bool,
+pub fn datadog_layer<S>(
+    service_name: &str,
+    endpoint: &str,
+    location: bool,
+) -> impl Layer<S>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
+
+    let tracer = opentelemetry_datadog::new_pipeline()
+        .with_agent_endpoint(endpoint)
+        .with_trace_config(tracer_config)
+        .with_service_name(service_name)
+        .with_api_version(ApiVersion::Version05)
+        .install_batch(opentelemetry::runtime::Tokio)
+        .unwrap(); // TODO: do not unwrap here, either propagate or expect, but ideally propagate
+
+    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
+    let dd_format_layer = datadog_format_layer(location);
+
+    dd_format_layer.and_then(otel_layer)
 }
 
-impl DatadogLayer {
-    pub fn new(service_name: impl ToString, endpoint: impl ToString) -> Self {
-        Self {
-            service_name: service_name.to_string(),
-            endpoint: endpoint.to_string(),
-            env_filter: EnvFilter::from_default_env(),
-            location: false,
-        }
-    }
-
-    pub fn into_layer<S>(self) -> Result<impl Layer<S>, BatteryError>
-    where
-        S: Subscriber + for<'a> LookupSpan<'a>,
-    {
-        let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
-
-        let tracer = opentelemetry_datadog::new_pipeline()
-            .with_agent_endpoint(self.endpoint)
-            .with_trace_config(tracer_config)
-            .with_service_name(self.service_name)
-            .with_api_version(ApiVersion::Version05)
-            .install_batch(opentelemetry::runtime::Tokio)?;
-
-        let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
-        let dd_format_layer = DatadogFormatLayer::layer(self.location);
-
-        Ok(self
-            .env_filter
-            .and_then(dd_format_layer)
-            .and_then(otel_layer))
-    }
-}
-
-pub struct DatadogFormatLayer;
-
-impl DatadogFormatLayer {
-    pub fn layer<S>(location: bool) -> impl Layer<S>
-    where
-        S: Subscriber + for<'a> LookupSpan<'a>,
-    {
-        fmt::Layer::new()
-            .json()
-            .event_format(DatadogFormat { location })
-    }
+pub fn datadog_format_layer<S>(location: bool) -> impl Layer<S>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    fmt::Layer::new()
+        .json()
+        .event_format(DatadogFormat { location })
 }
 
 pub struct DatadogFormat {
