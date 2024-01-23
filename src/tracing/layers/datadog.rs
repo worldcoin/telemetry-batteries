@@ -11,7 +11,6 @@ use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{fmt, Layer};
 
-use crate::error::BatteryError;
 use crate::tracing::{
     opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
 };
@@ -20,7 +19,7 @@ pub fn datadog_layer<S>(
     service_name: &str,
     endpoint: &str,
     location: bool,
-) -> Result<impl Layer<S>, BatteryError>
+) -> impl Layer<S>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
@@ -37,7 +36,7 @@ where
     let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
     let dd_format_layer = datadog_format_layer(location);
 
-    Ok(dd_format_layer.and_then(otel_layer))
+    dd_format_layer.and_then(otel_layer)
 }
 
 pub fn datadog_format_layer<S>(location: bool) -> impl Layer<S>

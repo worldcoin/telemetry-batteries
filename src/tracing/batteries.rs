@@ -20,7 +20,7 @@ impl DatadogBattery {
     ) -> Result<(), BatteryError> {
         let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
-        let datadog_layer = datadog_layer(service_name, endpoint, location)?;
+        let datadog_layer = datadog_layer(service_name, endpoint, location);
 
         if let Some(file_appender) = file_appender {
             let file_writer_layer = non_blocking_writer_layer(file_appender);
