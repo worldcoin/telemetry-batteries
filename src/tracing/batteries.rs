@@ -1,6 +1,5 @@
-use crate::{
-    error::BatteryError,
-    tracing::layers::{datadog::datadog_layer, non_blocking_writer_layer},
+use crate::tracing::layers::{
+    datadog::datadog_layer, non_blocking_writer_layer,
 };
 use tracing_appender::rolling::RollingFileAppender;
 use tracing_subscriber::{
@@ -17,7 +16,7 @@ impl DatadogBattery {
         service_name: &str,
         file_appender: Option<RollingFileAppender>,
         location: bool,
-    ) -> Result<(), BatteryError> {
+    ) {
         let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
         let datadog_layer = datadog_layer(service_name, endpoint, location);
@@ -34,7 +33,5 @@ impl DatadogBattery {
             let layers = EnvFilter::from_default_env().and_then(datadog_layer);
             tracing_subscriber::registry().with(layers).init();
         }
-
-        Ok(())
     }
 }

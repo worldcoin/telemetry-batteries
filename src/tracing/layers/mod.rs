@@ -23,7 +23,6 @@ where
 {
     let (non_blocking, guard) = tracing_appender::non_blocking(writer);
     WORKER_GUARD.set(guard).expect("Could not set worker guard");
-    let file_layer = tracing_subscriber::fmt::layer().with_writer(non_blocking);
 
-    file_layer
+    tracing_subscriber::fmt::layer().with_writer(non_blocking)
 }

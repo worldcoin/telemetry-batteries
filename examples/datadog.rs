@@ -5,7 +5,7 @@ pub const SERVICE_NAME: &str = "datadog-example";
 
 pub fn main() -> eyre::Result<()> {
     // Add a new DatadogBattery for tracing/logs
-    DatadogBattery::init(None, SERVICE_NAME, None, true)?;
+    DatadogBattery::init(None, SERVICE_NAME, None, true);
 
     // Add a new StatsdBattery for metrics
     StatsdBattery::init("localhost", 8125, 5000, 1024, None)?;
