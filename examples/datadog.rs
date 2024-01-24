@@ -11,7 +11,7 @@ pub fn main() -> eyre::Result<()> {
     StatsdBattery::init("localhost", 8125, 5000, 1024, None)?;
 
     tracing::info!("foo");
-    metrics::increment_counter!("bar");
+    metrics::counter!("foo").increment(1);
 
     // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped.
     Ok(())
