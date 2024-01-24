@@ -1,4 +1,4 @@
-pub mod batteries;
+pub mod datadog;
 pub mod layers;
 
 use opentelemetry::trace::TraceContextExt;
