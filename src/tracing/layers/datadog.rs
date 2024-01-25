@@ -30,7 +30,7 @@ where
         .with_service_name(service_name)
         .with_api_version(ApiVersion::Version05)
         .install_batch(opentelemetry_sdk::runtime::Tokio)
-        .unwrap(); // TODO: do not unwrap here, either propagate or expect, but ideally propagate
+        .expect("failed to install OpenTelemetry datadog tracer, perhaps check which async runtime is being used");
 
     let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
     let dd_format_layer = datadog_format_layer(location);
