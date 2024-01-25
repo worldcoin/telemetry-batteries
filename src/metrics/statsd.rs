@@ -15,7 +15,7 @@ impl StatsdBattery {
             .with_buffer_size(buffer_size)
             .build(prefix)?;
 
-        metrics::set_boxed_recorder(Box::new(recorder))?;
+        metrics::set_global_recorder(recorder)?;
 
         Ok(())
     }

@@ -14,7 +14,7 @@ pub fn main() -> eyre::Result<()> {
     // PrometheusBattery::init()?;
 
     tracing::info!("foo");
-    metrics::increment_counter!("bar");
+    metrics::counter!("foo").increment(1);
 
     // Tracing providers are shutdown at the end of the program when TRACING_PROVIDER_GUARD is dropped.
     Ok(())
