@@ -1,7 +1,6 @@
 use chrono::Utc;
-use opentelemetry::sdk::trace;
-use opentelemetry::sdk::trace::Sampler;
 use opentelemetry_datadog::ApiVersion;
+use opentelemetry_sdk::trace::{Config, Sampler};
 use serde::ser::SerializeMap;
 use serde::Serializer;
 use tracing::{Event, Subscriber};
@@ -23,14 +22,14 @@ pub fn datadog_layer<S>(
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    let tracer_config = trace::config().with_sampler(Sampler::AlwaysOn);
+    let tracer_config = Config::default().with_sampler(Sampler::AlwaysOn);
 
     let tracer = opentelemetry_datadog::new_pipeline()
         .with_agent_endpoint(endpoint)
         .with_trace_config(tracer_config)
         .with_service_name(service_name)
         .with_api_version(ApiVersion::Version05)
-        .install_batch(opentelemetry::runtime::Tokio)
+        .install_batch(opentelemetry_sdk::runtime::Tokio)
         .unwrap(); // TODO: do not unwrap here, either propagate or expect, but ideally propagate
 
     let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
