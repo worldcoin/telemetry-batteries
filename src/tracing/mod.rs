@@ -1,7 +1,13 @@
 pub mod datadog;
 pub mod layers;
 
-use opentelemetry::trace::TraceContextExt;
+use opentelemetry::propagation::TextMapPropagator;
+use opentelemetry::trace::{
+    FutureExt, SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId,
+    TraceState,
+};
+use opentelemetry::Context;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use std::path::PathBuf;
 use std::{fs, io};
 use tracing::Subscriber;
@@ -96,6 +102,18 @@ where
     } else {
         Some(parent_span_id_u64)
     }
+}
+
+pub fn set_parent_span(trace_id: TraceId, span_id: SpanId) {
+    let parent_ctx = Context::new().with_remote_span_context(SpanContext::new(
+        trace_id,
+        span_id,
+        TraceFlags::default(),
+        true,
+        TraceState::default(),
+    ));
+
+    tracing::Span::current().set_parent(parent_ctx);
 }
 
 fn span_from_ctx<'a, S, N>(
