@@ -1,5 +1,6 @@
 pub mod datadog;
 pub mod layers;
+pub mod stdout;
 
 use opentelemetry::trace::TraceContextExt;
 use std::path::PathBuf;
