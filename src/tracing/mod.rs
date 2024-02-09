@@ -104,6 +104,7 @@ where
     }
 }
 
+/// Sets the current span's parent to the given span context
 pub fn set_parent_span(span_ctx: SpanContext) {
     let parent_ctx = Context::new().with_remote_span_context(span_ctx);
     tracing::Span::current().set_parent(parent_ctx);
