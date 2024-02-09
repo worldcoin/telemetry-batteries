@@ -1,13 +1,9 @@
 pub mod datadog;
 pub mod layers;
 
-use opentelemetry::propagation::TextMapPropagator;
-use opentelemetry::trace::{
-    FutureExt, SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId,
-    TraceState,
-};
+use opentelemetry::trace::{SpanContext, TraceContextExt};
 use opentelemetry::Context;
-use opentelemetry_sdk::propagation::TraceContextPropagator;
+
 use std::path::PathBuf;
 use std::{fs, io};
 use tracing::Subscriber;
