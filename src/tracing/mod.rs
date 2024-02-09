@@ -104,15 +104,8 @@ where
     }
 }
 
-pub fn set_parent_span(trace_id: TraceId, span_id: SpanId) {
-    let parent_ctx = Context::new().with_remote_span_context(SpanContext::new(
-        trace_id,
-        span_id,
-        TraceFlags::default(),
-        true,
-        TraceState::default(),
-    ));
-
+pub fn set_parent_span(span_ctx: SpanContext) {
+    let parent_ctx = Context::new().with_remote_span_context(span_ctx);
     tracing::Span::current().set_parent(parent_ctx);
 }
 
