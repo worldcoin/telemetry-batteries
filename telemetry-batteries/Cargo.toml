@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 [package]
 name = "telemetry-batteries"
 version = "0.1.0"
@@ -28,9 +27,3 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
 
 [dev-dependencies]
 eyre = "0.6.9"
-tokio = { version = "1.33.0", features = ["full"] }
-=======
-[workspace]
-resolver = "2"
-members = ["telemetry-batteries", "telemetry-batteries-macros"]
->>>>>>> 352a345 (added macro crate)
