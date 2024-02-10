@@ -6,6 +6,7 @@ use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, registry::LookupSpan, Layer};
 
 pub mod datadog;
+pub mod stdout;
 
 pub fn stdout_layer<S>() -> impl Layer<S>
 where
