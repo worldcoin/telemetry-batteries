@@ -4,7 +4,6 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote, Ident, ItemFn, LitBool, LitStr, Token,
 };
-use tracing_subscriber::EnvFilter;
 
 pub const DEFAULT_DATADOG_AGENT_ENDPOINT: &str = "http://localhost:8126";
 
