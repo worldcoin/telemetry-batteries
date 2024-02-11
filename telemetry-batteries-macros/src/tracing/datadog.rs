@@ -1,9 +1,10 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, Ident, ItemFn, LitBool, LitStr, Token,
+    parse_macro_input, parse_quote, Ident, ItemFn, LitBool, LitStr, Token,
 };
+use tracing_subscriber::EnvFilter;
 
 pub const DEFAULT_DATADOG_AGENT_ENDPOINT: &str = "http://localhost:8126";
 
@@ -69,16 +70,34 @@ impl Parse for DatadogArgs {
 
 pub fn datadog(attr: TokenStream, item: TokenStream) -> TokenStream {
     let datadog_args = parse_macro_input!(attr as DatadogArgs);
-    let input_fn = parse_macro_input!(item as ItemFn);
+    let mut input_fn = parse_macro_input!(item as ItemFn);
 
-    let endpoint = datadog_args.endpoint.as_deref();
+    let endpoint: String = datadog_args
+        .endpoint
+        .unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT.to_string());
+
     let service_name = datadog_args.service_name.as_str();
     let location = datadog_args.location.unwrap_or(false);
 
+    let input_block = &input_fn.block;
+    let new_block: syn::Block = parse_quote!({
+        let endpoint = #endpoint;
+        let _tracing_shutdown_handle = telemetry_batteries::tracing::datadog::DatadogBattery::init(
+            Some(&endpoint),
+            #service_name,
+            None,
+            #location,
+        );
+
+
+
+        #input_block
+    });
+
+    input_fn.block = Box::new(new_block);
+
     let expanded = quote! {
-        #input_fn {
-            let _shutdown_handle = ::telemetry_batteries::tracing::datadog::DatadogBattery::init(#endpoint, #service_name, None, #location);
-        }
+        #input_fn
     };
 
     TokenStream::from(expanded)
