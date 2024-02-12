@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote, Ident, ItemFn, LitBool, LitStr, Token,
+    parse_macro_input, parse_quote, Ident, ItemFn, LitStr, Token,
 };
 
 pub const DEFAULT_HOST_ENDPOINT: &str = "localhost";
