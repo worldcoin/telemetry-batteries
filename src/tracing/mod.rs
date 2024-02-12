@@ -110,7 +110,7 @@ pub fn trace_from_ctx(ctx: SpanContext) {
 }
 
 // Extracts the trace id and span id from the current span
-pub fn extract_span_ids() -> (TraceId, SpanId) {
+pub fn extract_current_span_ids() -> (TraceId, SpanId) {
     let current_span = tracing::Span::current();
     let current_context = current_span.context();
     let span_ref = current_context.span();
