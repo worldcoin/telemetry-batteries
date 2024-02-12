@@ -51,7 +51,8 @@ mod tests {
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
         let service_name = "test_service";
-        DatadogBattery::init(None, service_name, None, false);
+        let _shutdown_handle =
+            DatadogBattery::init(None, service_name, None, false);
 
         for _ in 0..1000 {
             tracing::info!("test");
