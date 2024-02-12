@@ -6,6 +6,8 @@ use tracing_subscriber::{
     layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
 
+use super::TracingShutdownHandle;
+
 pub const DEFAULT_DATADOG_AGENT_ENDPOINT: &str = "http://localhost:8126";
 
 pub struct DatadogBattery;
@@ -16,7 +18,7 @@ impl DatadogBattery {
         service_name: &str,
         file_appender: Option<RollingFileAppender>,
         location: bool,
-    ) {
+    ) -> TracingShutdownHandle {
         let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
         let datadog_layer = datadog_layer(service_name, endpoint, location);
@@ -32,6 +34,28 @@ impl DatadogBattery {
         } else {
             let layers = EnvFilter::from_default_env().and_then(datadog_layer);
             tracing_subscriber::registry().with(layers).init();
+        }
+
+        TracingShutdownHandle
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+
+    use super::*;
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_init() {
+        env::set_var("RUST_LOG", "info");
+        let service_name = "test_service";
+        DatadogBattery::init(None, service_name, None, false);
+
+        for _ in 0..1000 {
+            tracing::info!("test");
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         }
     }
 }

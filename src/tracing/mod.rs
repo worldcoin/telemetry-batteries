@@ -1,5 +1,6 @@
 pub mod datadog;
 pub mod layers;
+pub mod stdout;
 
 use opentelemetry::trace::{
     SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId,
@@ -16,11 +17,13 @@ use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
 pub use tracing_subscriber::Registry;
 
-pub static TRACING_PROVIDER_GUARD: TracingProviderGuard = TracingProviderGuard;
+/// `TracingShutdownHandle` ensures the global tracing provider
+/// is gracefully shut down when the handle is dropped, preventing loss
+/// of any remaining traces not yet exported.
+#[must_use]
+pub struct TracingShutdownHandle;
 
-pub struct TracingProviderGuard;
-
-impl Drop for TracingProviderGuard {
+impl Drop for TracingShutdownHandle {
     fn drop(&mut self) {
         tracing::warn!("Shutting down tracing provider");
         opentelemetry::global::shutdown_tracer_provider();
