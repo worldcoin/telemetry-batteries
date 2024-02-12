@@ -1,8 +1,11 @@
 pub mod datadog;
 pub mod layers;
 
-use opentelemetry::trace::{SpanContext, TraceContextExt};
+use opentelemetry::trace::{
+    SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId,
+};
 use opentelemetry::Context;
+use opentelemetry_sdk::trace::Span;
 
 use std::path::PathBuf;
 use std::{fs, io};
@@ -100,10 +103,21 @@ where
     }
 }
 
-/// Sets the current span's parent to the given span context
-pub fn set_parent_span(span_ctx: SpanContext) {
-    let parent_ctx = Context::new().with_remote_span_context(span_ctx);
+pub fn trace_from_ctx(ctx: SpanContext) {
+    let parent_ctx = Context::new().with_remote_span_context(ctx);
     tracing::Span::current().set_parent(parent_ctx);
+}
+
+pub fn extract_span_ids() -> (TraceId, SpanId) {
+    let current_span = tracing::Span::current();
+    let current_context = current_span.context();
+    let span_ref = current_context.span();
+
+    let span_context = span_ref.span_context();
+    let trace_id = span_context.trace_id();
+    let span_id = span_context.span_id();
+
+    (trace_id, span_id)
 }
 
 fn span_from_ctx<'a, S, N>(
