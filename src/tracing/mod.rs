@@ -2,11 +2,8 @@ pub mod datadog;
 pub mod layers;
 pub mod stdout;
 
-use opentelemetry::trace::{
-    SpanContext, SpanId, TraceContextExt, TraceId,
-};
+use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
 use opentelemetry::Context;
-
 
 use std::path::PathBuf;
 use std::{fs, io};
