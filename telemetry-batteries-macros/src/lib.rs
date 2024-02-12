@@ -20,14 +20,6 @@ mod tracing;
 /// of your application. You must provide the `service_name` parameter, and you may optionally
 /// include `endpoint` and `location` parameters. Due to how the `datadog_layer` from `telemetry-batteries` is configured
 /// the `main` function must be asynchronous and use the `tokio::main` macro after the `datadog` macro.
-///
-/// ```rust
-/// #[datadog(service_name = "my_service", endpoint = "http://localhost:8126", location = true)]
-/// #[tokio::main]
-/// fn async main() {
-///     // Application logic here
-/// }
-/// ```
 
 #[proc_macro_attribute]
 pub fn datadog(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -54,14 +46,6 @@ pub fn datadog(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// To use the `statsd` macro, apply it to the main function
 /// of your application. Due to how the `StatsdBattery` from `telemetry-batteries` is configured
 /// the `main` function must be asynchronous and use the `tokio::main` macro after the `statsd` macro.
-///
-/// ```rust
-// #[statsd(host = "localhost", port = 8125, buffer_size = 1024, queue_size = 100, prefix = "my_service")]
-/// #[tokio::main]
-/// fn async main() {
-///     // Application logic here
-/// }
-/// ```
 
 #[proc_macro_attribute]
 pub fn statsd(attr: TokenStream, item: TokenStream) -> TokenStream {

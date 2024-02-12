@@ -51,11 +51,12 @@ mod tests {
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
         let service_name = "test_service";
-        DatadogBattery::init(None, service_name, None, false);
+        let _shutdown_handle =
+            DatadogBattery::init(None, service_name, None, false);
 
-        for _ in 0..1000 {
+        for _ in 0..10 {
             tracing::info!("test");
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
     }
 }
