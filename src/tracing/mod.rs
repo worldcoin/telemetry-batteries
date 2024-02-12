@@ -103,11 +103,13 @@ where
     }
 }
 
+/// Sets the current span's parent to the specified context
 pub fn trace_from_ctx(ctx: SpanContext) {
     let parent_ctx = Context::new().with_remote_span_context(ctx);
     tracing::Span::current().set_parent(parent_ctx);
 }
 
+// Extracts the trace id and span id from the current span
 pub fn extract_span_ids() -> (TraceId, SpanId) {
     let current_span = tracing::Span::current();
     let current_context = current_span.context();
