@@ -1,5 +1,6 @@
 use proc_macro::TokenStream;
 
+mod metrics;
 mod tracing;
 
 /// Macro to initialize Datadog instrumentation
@@ -31,4 +32,38 @@ mod tracing;
 #[proc_macro_attribute]
 pub fn datadog(attr: TokenStream, item: TokenStream) -> TokenStream {
     tracing::datadog::datadog(attr, item)
+}
+
+/// Macro to initialize Stastd metrics backend
+///
+/// # Parameters
+///
+/// - `host`: Optional string literal specifying the StatsD server's IP. Defaults to `"localhost"` if not provided.
+///
+/// - `port`: Optional u16 specifying the port on which the StatsD server is listening.  Defaults to `8125` if not provided.
+///
+/// - `buffer_size`: Optional usize specifying the buffer size (in bytes) that should be buffered in StatsdClient's memory before the data is sent to the server. Defaults to 256 if not provided.
+///
+/// - `queue_size`: Optional usize specifying the size of the queue for storing metrics
+///   before sending to the server. Defaults to 5000 if not provided.
+///
+/// - `prefix`: Optional string literal used as a prefix for all metrics sent. No prefix is added if not provided.
+///
+/// # Usage
+///
+/// To use the `statsd` macro, apply it to the main function
+/// of your application. Due to how the `StatsdBattery` from `telemetry-batteries` is configured
+/// the `main` function must be asynchronous and use the `tokio::main` macro after the `statsd` macro.
+///
+/// ```rust
+// #[statsd(host = "localhost", port = 8125, buffer_size = 1024, queue_size = 100, prefix = "my_service")]
+/// #[tokio::main]
+/// fn async main() {
+///     // Application logic here
+/// }
+/// ```
+
+#[proc_macro_attribute]
+pub fn statsd(attr: TokenStream, item: TokenStream) -> TokenStream {
+    metrics::statsd::statsd(attr, item)
 }
