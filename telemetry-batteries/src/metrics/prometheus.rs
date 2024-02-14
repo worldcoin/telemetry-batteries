@@ -5,6 +5,7 @@ use std::{net::SocketAddr, time::Duration};
 pub struct PrometheusBattery;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum PrometheusExporterConfig {
     // Run an HTTP listener on the given `listen_address`.
     HttpListener {
