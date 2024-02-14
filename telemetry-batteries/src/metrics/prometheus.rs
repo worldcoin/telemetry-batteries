@@ -1,8 +1,6 @@
-use std::{net::SocketAddr, time::Duration};
-
-use http::Uri;
 use metrics_exporter_prometheus::{BuildError, PrometheusBuilder};
 use serde::{Deserialize, Serialize};
+use std::{net::SocketAddr, time::Duration};
 
 pub struct PrometheusBattery;
 
