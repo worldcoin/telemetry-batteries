@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use chrono::Utc;
 use opentelemetry_datadog::ApiVersion;
 use opentelemetry_sdk::trace::{Config, Sampler};
@@ -24,7 +26,16 @@ where
 {
     let tracer_config = Config::default().with_sampler(Sampler::AlwaysOn);
 
+    // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
+    // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved
+    // seems to prevent client reuse and avoid the errors in question
+    let dd_http_client = reqwest::ClientBuilder::new()
+        .pool_idle_timeout(Duration::from_millis(1))
+        .build()
+        .expect("Could not init datadog http_client");
+
     let tracer = opentelemetry_datadog::new_pipeline()
+        .with_http_client(dd_http_client)
         .with_agent_endpoint(endpoint)
         .with_trace_config(tracer_config)
         .with_service_name(service_name)
