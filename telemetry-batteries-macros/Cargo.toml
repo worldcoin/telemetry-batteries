@@ -17,4 +17,4 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
 tracing = "0.1.40"
 metrics = "0.22.1"
 eyre = "0.6.12"
-tokio = { verison = "1.36.0", features = ["macros"] }
+tokio = { version = "1.36.0", features = ["macros"] }
