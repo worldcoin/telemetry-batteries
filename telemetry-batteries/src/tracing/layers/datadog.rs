@@ -12,6 +12,7 @@ use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{fmt, Layer};
 
+use crate::tracing::id_generator::ReducedIdGenerator;
 use crate::tracing::{
     opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
 };
@@ -24,7 +25,9 @@ pub fn datadog_layer<S>(
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    let tracer_config = Config::default().with_sampler(Sampler::AlwaysOn);
+    let tracer_config = Config::default()
+        .with_id_generator(ReducedIdGenerator)
+        .with_sampler(Sampler::AlwaysOn);
 
     // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
     // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved

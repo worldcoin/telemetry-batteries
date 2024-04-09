@@ -1,4 +1,5 @@
 pub mod datadog;
+pub mod id_generator;
 pub mod layers;
 pub mod stdout;
 
