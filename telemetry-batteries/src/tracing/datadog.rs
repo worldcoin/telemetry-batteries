@@ -46,6 +46,8 @@ mod tests {
 
     use super::*;
 
+    /// We expect this test to hang indefinitely if
+    /// no Datadog agent is running on localhost:8126
     #[ignore]
     #[tokio::test]
     async fn test_init() {
@@ -54,9 +56,9 @@ mod tests {
         let _shutdown_handle =
             DatadogBattery::init(None, service_name, None, false);
 
-        for _ in 0..10 {
-            tracing::info!("test");
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        for i in 0..5 {
+            tracing::info!("test {i}");
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
     }
 }
