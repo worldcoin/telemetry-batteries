@@ -9,7 +9,10 @@ pub struct StdoutBattery;
 impl StdoutBattery {
     pub fn init() -> TracingShutdownHandle {
         let stdout_layer = stdout_layer();
-        let layers = EnvFilter::from_default_env().and_then(stdout_layer);
+        let error_layer = tracing_error::ErrorLayer::default();
+        let layers = EnvFilter::from_default_env()
+            .and_then(stdout_layer)
+            .and_then(error_layer);
         tracing_subscriber::registry().with(layers).init();
 
         TracingShutdownHandle
