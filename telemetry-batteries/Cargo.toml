@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.31"
 dirs = "5.0.1"
-http = "0.2"
+http = "1.1"
 metrics = "0.22"
 metrics-exporter-statsd = "0.7"
 metrics-exporter-prometheus = "0.13.0"
