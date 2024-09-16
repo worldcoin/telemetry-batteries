@@ -13,7 +13,7 @@ metrics-exporter-statsd = "0.7"
 metrics-exporter-prometheus = "0.13.0"
 opentelemetry = { version = "0.21.0" }
 opentelemetry-datadog = { version = "0.9.0", features = ["reqwest-client"] }
-opentelemetry-http = "0.10"
+opentelemetry-http = "0.25"
 opentelemetry_sdk = { version = "0.21.0", features = ["rt-tokio"] }
 reqwest = "0.11.24"
 serde = { version = "1.0.189", features = ["derive"] }
