@@ -1,6 +1,7 @@
 use crate::tracing::layers::{
     datadog::datadog_layer, non_blocking_writer_layer,
 };
+use opentelemetry_datadog::DatadogPropagator;
 use tracing_appender::rolling::RollingFileAppender;
 use tracing_subscriber::{
     layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
@@ -19,6 +20,8 @@ impl DatadogBattery {
         file_appender: Option<RollingFileAppender>,
         location: bool,
     ) -> TracingShutdownHandle {
+        opentelemetry::global::set_text_map_propagator(DatadogPropagator::new());
+
         let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
         let datadog_layer = datadog_layer(service_name, endpoint, location);
