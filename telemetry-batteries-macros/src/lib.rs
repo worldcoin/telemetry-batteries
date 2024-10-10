@@ -20,7 +20,6 @@ mod tracing;
 /// of your application. You must provide the `service_name` parameter, and you may optionally
 /// include `endpoint` and `location` parameters. Due to how the `datadog_layer` from `telemetry-batteries` is configured
 /// the `main` function must be asynchronous and use the `tokio::main` macro after the `datadog` macro.
-
 #[proc_macro_attribute]
 pub fn datadog(attr: TokenStream, item: TokenStream) -> TokenStream {
     tracing::datadog::datadog(attr, item)
@@ -46,7 +45,6 @@ pub fn datadog(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// To use the `statsd` macro, apply it to the main function
 /// of your application. Due to how the `StatsdBattery` from `telemetry-batteries` is configured
 /// the `main` function must be asynchronous and use the `tokio::main` macro after the `statsd` macro.
-
 #[proc_macro_attribute]
 pub fn statsd(attr: TokenStream, item: TokenStream) -> TokenStream {
     metrics::statsd::statsd(attr, item)

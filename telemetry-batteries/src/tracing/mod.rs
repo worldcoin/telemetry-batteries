@@ -145,7 +145,7 @@ impl<'a> WriteAdapter<'a> {
     }
 }
 
-impl<'a> io::Write for WriteAdapter<'a> {
+impl io::Write for WriteAdapter<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let s = std::str::from_utf8(buf)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
