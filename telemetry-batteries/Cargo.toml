@@ -1,7 +1,11 @@
 [package]
 name = "telemetry-batteries"
 version = "0.1.0"
-edition = "2021"
+publish = false
+
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 chrono = "0.4.31"
