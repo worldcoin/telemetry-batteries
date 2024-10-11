@@ -1,3 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["telemetry-batteries", "telemetry-batteries-macros"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+repository = "https://github.com/worldcoin/telemetry-batteries"
