@@ -7,5 +7,6 @@ pub mod tracing;
 /// errors where types have the same name but actually are distinct types from different
 /// crate versions.
 pub mod reexports {
+    pub use ::metrics;
     pub use ::opentelemetry;
 }
