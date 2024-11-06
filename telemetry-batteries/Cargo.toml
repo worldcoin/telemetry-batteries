@@ -11,9 +11,9 @@ repository.workspace = true
 chrono = "0.4.31"
 dirs = "5.0.1"
 http = "1.1.0"
-metrics = "0.23"
-metrics-exporter-statsd = "0.8"
-metrics-exporter-prometheus = "0.15.3"
+metrics = "0.24"
+metrics-exporter-statsd = "0.9"
+metrics-exporter-prometheus = "0.16"
 opentelemetry = { version = "0.24.0" }
 opentelemetry-datadog = { version = "0.13.0", features = ["reqwest-client"] }
 opentelemetry-http = "0.13"
