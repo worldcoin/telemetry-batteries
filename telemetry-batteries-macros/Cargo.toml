@@ -19,6 +19,6 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
 
 [dev-dependencies]
 tracing = "0.1.40"
-metrics = "0.22.1"
+metrics = "0.24"
 eyre = "0.6.12"
-tokio = { version = "1.36.0", features = [ "macros", "rt-multi-thread" ] }
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
