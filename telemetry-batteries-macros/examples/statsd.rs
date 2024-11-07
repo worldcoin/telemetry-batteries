@@ -9,6 +9,6 @@ use telemetry_batteries_macros::statsd;
 )]
 #[tokio::main]
 pub async fn main() -> eyre::Result<()> {
-    metrics::counter!("my_counter");
+    let _ = metrics::counter!("my_counter");
     Ok(())
 }

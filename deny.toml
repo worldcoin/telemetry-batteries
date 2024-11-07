@@ -4,8 +4,7 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = [
-]
+ignore = []
 
 [sources]
 unknown-registry = "deny"
@@ -29,17 +28,16 @@ allow = [
     "ISC",
     "LicenseRef-ring",
     "MIT",
-    "MPL-2.0", # Although this is copyleft, it is scoped to modifying the original files
+    "MPL-2.0",                        # Although this is copyleft, it is scoped to modifying the original files
     "OpenSSL",
     "Unicode-DFS-2016",
     "Unlicense",
     "Zlib",
+    "Unicode-3.0",
 ]
 
 # See https://github.com/briansmith/ring/blob/95948b3977013aed16db92ae32e6b8384496a740/deny.toml#L12
 [[licenses.clarify]]
 name = "ring"
 expression = "LicenseRef-ring"
-license-files = [
-    { path = "LICENSE", hash = 0xbd0eed23 },
-]
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
