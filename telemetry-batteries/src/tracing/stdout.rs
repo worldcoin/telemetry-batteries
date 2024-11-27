@@ -22,18 +22,17 @@ mod tests {
 
     use super::*;
 
-    #[ignore]
     #[tokio::test]
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
         let _shutdown_handle = StdoutBattery::init();
 
-        for _ in 0..1000 {
+        for _ in 0..5 {
             let span = tracing::span!(tracing::Level::INFO, "test_span");
             span.in_scope(|| {
                 tracing::info!("test_event");
             });
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
     }
 }
