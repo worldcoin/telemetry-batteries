@@ -1,3 +1,4 @@
+#[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
 pub mod metrics;
 pub mod tracing;
 
@@ -7,6 +8,10 @@ pub mod tracing;
 /// errors where types have the same name but actually are distinct types from different
 /// crate versions.
 pub mod reexports {
+    #[cfg(any(
+        feature = "metrics-prometheus",
+        feature = "metrics-statsd"
+    ))]
     pub use ::metrics;
     pub use ::opentelemetry;
 }
