@@ -150,11 +150,9 @@ impl io::Write for WriteAdapter<'_> {
         let s = std::str::from_utf8(buf)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        self.fmt_write
-            .write_str(s)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        self.fmt_write.write_str(s).map_err(io::Error::other)?;
 
-        Ok(s.as_bytes().len())
+        Ok(s.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
