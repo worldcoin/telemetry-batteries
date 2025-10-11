@@ -11,12 +11,8 @@ repository.workspace = true
 default = ["metrics-prometheus", "metrics-statsd", "rustls"]
 metrics-statsd = ["dep:metrics-exporter-statsd"]
 metrics-prometheus = ["dep:metrics-exporter-prometheus"]
-rustls = [
-    "reqwest/rustls-tls"
-]
-native-tls = [
-    "reqwest/native-tls"
-]
+rustls = ["reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls"]
 
 [dependencies]
 chrono = "0.4"
