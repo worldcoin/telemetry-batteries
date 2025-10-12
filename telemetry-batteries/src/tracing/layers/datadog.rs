@@ -113,7 +113,7 @@ where
             }
 
             if let Some(span_id) = span_id {
-                let span_id = format!("{}", span_id);
+                let span_id = format!("{span_id}");
                 serializer.serialize_entry("dd.span_id", &span_id)?;
             }
 
