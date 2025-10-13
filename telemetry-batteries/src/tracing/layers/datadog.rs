@@ -1,10 +1,10 @@
-use std::time::Duration;
-
 use chrono::Utc;
 use opentelemetry_datadog::ApiVersion;
-use opentelemetry_sdk::trace::{Config, Sampler};
+use opentelemetry_sdk::trace::Sampler;
 use serde::ser::SerializeMap;
 use serde::Serializer;
+use std::borrow::Cow;
+use std::time::Duration;
 use tracing::{Event, Subscriber};
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
@@ -16,6 +16,7 @@ use crate::tracing::id_generator::ReducedIdGenerator;
 use crate::tracing::{
     opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
 };
+use opentelemetry_sdk::export::trace::SpanData;
 
 pub fn datadog_layer<S>(
     service_name: &str,
@@ -25,7 +26,7 @@ pub fn datadog_layer<S>(
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    let tracer_config = Config::default()
+    let tracer_config = opentelemetry_sdk::trace::Config::default()
         .with_id_generator(ReducedIdGenerator)
         .with_sampler(Sampler::AlwaysOn);
 
@@ -43,6 +44,22 @@ where
         .with_trace_config(tracer_config)
         .with_service_name(service_name)
         .with_api_version(ApiVersion::Version05)
+        .with_name_mapping(|span: &SpanData, _cfg| -> &str {
+            span.attributes
+                .iter()
+                .find(|kv| kv.key.as_str() == "resource.name")
+                .map(|kv| kv.value.as_str())
+                .and_then(|cow_value| {
+                    match cow_value {
+                        Cow::Borrowed(s) => Some(s),
+                        Cow::Owned(_) => None,
+                    }
+                })
+                .unwrap_or(span.name.as_ref())
+        })
+        .with_resource_mapping(|span: &SpanData, _cfg| -> &str {
+            span.name.as_ref()
+        })
         .install_batch(opentelemetry_sdk::runtime::Tokio)
         .expect("failed to install OpenTelemetry datadog tracer, perhaps check which async runtime is being used");
 
@@ -106,8 +123,6 @@ where
             serializer = visitor.take_serializer()?;
 
             if let Some(trace_id) = trace_id {
-                // The opentelemetry-datadog crate truncates the 128-bit trace-id
-                // into a u64 before formatting it.
                 let trace_id = format!("{}", trace_id as u64);
                 serializer.serialize_entry("dd.trace_id", &trace_id)?;
             }
