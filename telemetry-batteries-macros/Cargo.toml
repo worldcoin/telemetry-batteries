@@ -1,6 +1,5 @@
 [package]
 name = "telemetry-batteries-macros"
-publish = false
 
 version.workspace = true
 edition.workspace = true
