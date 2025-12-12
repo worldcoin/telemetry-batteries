@@ -1,6 +1,6 @@
 # telemetry-batteries
 
-Batteries included library to configure tracing, logs and metrics - check out the [examples](/telemetry-batteries/eamples) for usage.
+Batteries included library to configure tracing, logs and metrics - check out the [examples](/telemetry-batteries/examples) for usage.
 
 ## License
 
