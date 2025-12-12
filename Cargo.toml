@@ -5,6 +5,7 @@ members = ["telemetry-batteries", "telemetry-batteries-macros"]
 [workspace.package]
 version = "0.1.1"
 edition = "2021"
+description = "Batteries included library to configure tracing, logs and metrics"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
 repository = "https://github.com/worldcoin/telemetry-batteries"
 
