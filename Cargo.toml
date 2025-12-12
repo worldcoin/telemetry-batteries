@@ -3,10 +3,11 @@ resolver = "2"
 members = ["telemetry-batteries", "telemetry-batteries-macros"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Batteries included library to configure tracing, logs and metrics"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+readme = "README.md"
 repository = "https://github.com/worldcoin/telemetry-batteries"
 
 [workspace.dependencies]
