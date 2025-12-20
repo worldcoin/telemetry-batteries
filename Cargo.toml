@@ -3,6 +3,36 @@ resolver = "2"
 members = ["telemetry-batteries", "telemetry-batteries-macros"]
 
 [workspace.package]
+version = "0.1.2"
 edition = "2021"
+description = "Batteries included library to configure tracing, logs and metrics"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+readme = "README.md"
 repository = "https://github.com/worldcoin/telemetry-batteries"
+
+[workspace.dependencies]
+chrono = "0.4"
+dirs = "5"
+eyre = "0.6"
+http = "1"
+metrics = "0.24"
+metrics-exporter-statsd = "0.9"
+metrics-exporter-prometheus = "0.16"
+opentelemetry = "0.26"
+opentelemetry-datadog = { version = "0.14", features = ["reqwest-client"] }
+opentelemetry-http = "0.26"
+opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+proc-macro2 = "1.0.60"
+quote = "1"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+syn = { version = "2.0", features = ["full"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-opentelemetry = "0.27"
+tracing-serde = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
