@@ -1,3 +1,4 @@
+pub mod json_eyre;
 #[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
 pub mod metrics;
 pub mod tracing;

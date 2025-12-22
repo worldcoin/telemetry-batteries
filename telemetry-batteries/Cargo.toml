@@ -18,6 +18,7 @@ native-tls = ["reqwest/native-tls"]
 [dependencies]
 chrono.workspace = true
 dirs.workspace = true
+eyre.workspace = true
 http.workspace = true
 metrics.workspace = true
 metrics-exporter-statsd = { workspace = true, optional = true }
@@ -39,4 +40,4 @@ tracing-subscriber.workspace = true
 rand.workspace = true
 
 [dev-dependencies]
-eyre.workspace = true
+anyhow.workspace = true
