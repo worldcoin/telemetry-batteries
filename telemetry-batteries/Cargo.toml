@@ -17,6 +17,7 @@ native-tls = ["reqwest/native-tls"]
 [dependencies]
 chrono = "0.4"
 dirs = "5"
+eyre = "0.6"
 http = "1"
 metrics = "0.24"
 metrics-exporter-statsd = { version = "0.9", optional = true }
@@ -38,4 +39,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 rand = "0.8"
 
 [dev-dependencies]
-eyre = "0.6"
+anyhow = "1.0.100"
