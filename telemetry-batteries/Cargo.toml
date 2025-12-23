@@ -18,6 +18,7 @@ native-tls = ["reqwest/native-tls"]
 [dependencies]
 backtrace.workspace = true
 chrono.workspace = true
+color-eyre.workspace = true
 dirs.workspace = true
 eyre.workspace = true
 http.workspace = true

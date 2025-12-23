@@ -183,7 +183,7 @@ impl eyre::EyreHandler for Handler {
     }
 }
 
-pub fn install_hook(
+pub fn install(
     with_default_backtrace: bool,
     with_default_spantrace: bool,
 ) -> eyre::Result<()> {

@@ -39,3 +39,4 @@ tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 anyhow = "1.0"
 backtrace = "0.3"
+color-eyre = "0.6"
