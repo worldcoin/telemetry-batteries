@@ -1,10 +1,12 @@
 pub mod json_eyre;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EyreMode {
     ColorEyre,
     JsonEyre,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EyreConfig {
     mode: EyreMode,
     with_default_backtrace: bool,

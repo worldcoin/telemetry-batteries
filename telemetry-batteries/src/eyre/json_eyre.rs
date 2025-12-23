@@ -1,15 +1,26 @@
 use std::{env, iter::successors};
 
+use eyre::{EyreHandler, Report, Result};
 use serde::{Deserialize, Serialize};
 use tracing::Metadata;
 use tracing_error::SpanTrace;
 
+pub fn install(
+    with_default_backtrace: bool,
+    with_default_spantrace: bool,
+) -> Result<()> {
+    eyre::set_hook(Box::new(move |_| {
+        Box::new(Handler::new(with_default_backtrace, with_default_spantrace))
+    }))?;
+
+    Ok(())
+}
 /// Convenience trait to get the backtrace from an eyre::Report in case json_eyre is installed.
 pub trait BacktraceExt {
     fn backtrace(&self) -> Option<&backtrace::Backtrace>;
 }
 
-impl BacktraceExt for eyre::Report {
+impl BacktraceExt for Report {
     fn backtrace(&self) -> Option<&backtrace::Backtrace> {
         self.handler()
             .downcast_ref::<Handler>()
@@ -17,8 +28,21 @@ impl BacktraceExt for eyre::Report {
     }
 }
 
+/// Convenience trait to get the spantrace from an eyre::Report in case json_eyre is installed.
+pub trait SpantraceExt {
+    fn spantrace(&self) -> Option<&SpanTrace>;
+}
+
+impl SpantraceExt for Report {
+    fn spantrace(&self) -> Option<&SpanTrace> {
+        self.handler()
+            .downcast_ref::<Handler>()
+            .and_then(|handler| handler.spantrace.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct BacktraceSymbol {
+struct BacktraceSymbol {
     // Note: None will be serialized as 'null'
     pub function: Option<String>,
     pub file: Option<String>,
@@ -40,7 +64,7 @@ impl BacktraceSymbol {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct SpanFrame {
+struct SpanFrame {
     pub full_name: String,
     pub file: Option<String>,
     pub line: Option<u32>,
@@ -124,7 +148,7 @@ impl JsonFormatter {
 }
 
 #[derive(Debug)]
-pub struct Handler {
+struct Handler {
     backtrace: Option<backtrace::Backtrace>,
     spantrace: Option<SpanTrace>,
 }
@@ -162,7 +186,7 @@ impl Handler {
     }
 }
 
-impl eyre::EyreHandler for Handler {
+impl EyreHandler for Handler {
     fn debug(
         &self,
         error: &(dyn std::error::Error + 'static),
@@ -181,17 +205,6 @@ impl eyre::EyreHandler for Handler {
             ),
         }
     }
-}
-
-pub fn install(
-    with_default_backtrace: bool,
-    with_default_spantrace: bool,
-) -> eyre::Result<()> {
-    eyre::set_hook(Box::new(move |_| {
-        Box::new(Handler::new(with_default_backtrace, with_default_spantrace))
-    }))?;
-
-    Ok(())
 }
 
 #[cfg(test)]
