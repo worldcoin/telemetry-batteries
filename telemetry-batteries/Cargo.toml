@@ -16,6 +16,7 @@ rustls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
 
 [dependencies]
+backtrace.workspace = true
 chrono.workspace = true
 dirs.workspace = true
 eyre.workspace = true
@@ -36,6 +37,7 @@ tracing.workspace = true
 tracing-appender.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-serde.workspace = true
+tracing-error.workspace = true
 tracing-subscriber.workspace = true
 rand.workspace = true
 
