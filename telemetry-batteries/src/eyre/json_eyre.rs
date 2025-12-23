@@ -99,7 +99,7 @@ impl SpanFrame {
         Self {
             full_name: format!("{}::{}", metadata.target(), metadata.name()),
             file: metadata.file().map(|file| file.to_string()),
-            line: metadata.line().map(|line| line as u32),
+            line: metadata.line(),
             fields,
         }
     }
