@@ -1,3 +1,19 @@
+//! JSON formatter for eyre error reports.
+//!
+//! # JSON Schema
+//!
+//! ```json
+//! {
+//!   "error_chain": [[0, "message"], [1, "cause"], ...],
+//!   "backtrace": [[0, {"function": "...", "file": "...", "line": 42}], ...],
+//!   "spantrace": [[0, {"full_name": "...", "file": "...", "line": 42, "fields": "key1=value1 key2=value2 ..."}], ...]
+//! }
+//! ```
+//!
+//! - `error_chain`: Indexed error messages, last element is root cause
+//! - `backtrace`: Optional, omitted if backtrace capture is disabled. Uses the backtrace crate to capture the backtrace.
+//! - `spantrace`: Optional, omitted if spantrace capture is disabled. Uses the tracing-error crate to capture the spantrace.
+
 use std::{env, iter::successors};
 
 use eyre::{EyreHandler, Report, Result};
@@ -5,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use tracing::Metadata;
 use tracing_error::SpanTrace;
 
+/// Install the json_eyre hook globally.
 pub fn install(
     with_default_backtrace: bool,
     with_default_spantrace: bool,
