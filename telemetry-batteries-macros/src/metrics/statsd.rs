@@ -106,7 +106,7 @@ pub fn statsd(attr: TokenStream, item: TokenStream) -> TokenStream {
         #input_block
     });
 
-    input_fn.block = Box::new(new_block);
+    *input_fn.block = new_block;
 
     let expanded = quote! {
         #input_fn
