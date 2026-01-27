@@ -1,5 +1,5 @@
 #[cfg(feature = "metrics-prometheus")]
-pub mod prometheus;
+pub(crate) mod prometheus;
 
 #[cfg(feature = "metrics-statsd")]
-pub mod statsd;
+pub(crate) mod statsd;
