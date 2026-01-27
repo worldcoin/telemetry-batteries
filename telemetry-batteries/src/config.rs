@@ -138,7 +138,6 @@ pub struct TracingConfig {
     pub backend: TracingBackend,
 
     /// Endpoint for the tracing backend (e.g., Datadog Agent URL).
-    #[builder(default)]
     pub endpoint: Option<String>,
 
     /// Log output format.
@@ -151,7 +150,7 @@ pub struct TracingConfig {
 }
 
 /// Prometheus-specific configuration.
-#[derive(Debug, Clone, Builder, Default)]
+#[derive(Debug, Clone, Builder)]
 pub struct PrometheusConfig {
     /// Export mode (http listener or push gateway).
     #[builder(default)]
@@ -162,12 +161,22 @@ pub struct PrometheusConfig {
     pub listen: SocketAddr,
 
     /// Push gateway endpoint.
-    #[builder(default)]
     pub endpoint: Option<String>,
 
     /// Push interval in seconds.
     #[builder(default = Duration::from_secs(10))]
     pub interval: Duration,
+}
+
+impl Default for PrometheusConfig {
+    fn default() -> Self {
+        Self {
+            mode: PrometheusMode::default(),
+            listen: default_prometheus_listen(),
+            endpoint: None,
+            interval: Duration::from_secs(10),
+        }
+    }
 }
 
 fn default_prometheus_listen() -> SocketAddr {
@@ -186,7 +195,6 @@ pub struct StatsdConfig {
     pub port: u16,
 
     /// Metric name prefix.
-    #[builder(default)]
     pub prefix: Option<String>,
 
     /// Queue size for the exporter.
@@ -246,7 +254,6 @@ pub struct EyreConfig {
 #[derive(Debug, Clone, Builder, Default)]
 pub struct TelemetryConfig {
     /// Service name (required for Datadog).
-    #[builder(default)]
     pub service_name: Option<String>,
 
     /// Tracing/logging configuration.

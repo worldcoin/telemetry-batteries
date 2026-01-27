@@ -22,7 +22,7 @@ pub enum InitError {
 
     /// Failed to initialize eyre error reporting.
     #[error("failed to initialize eyre: {0}")]
-    Eyre(#[from] eyre::InstallError),
+    Eyre(String),
 
     /// Failed to initialize Prometheus metrics.
     #[cfg(feature = "metrics-prometheus")]
@@ -33,8 +33,10 @@ pub enum InitError {
     #[cfg(feature = "metrics-statsd")]
     #[error("failed to initialize statsd: {0}")]
     Statsd(#[from] metrics_exporter_statsd::StatsdError),
+}
 
-    /// Failed to set global metrics recorder.
-    #[error("failed to set global metrics recorder: {0}")]
-    MetricsRecorder(#[from] metrics::SetRecorderError),
+impl From<eyre::Report> for InitError {
+    fn from(err: eyre::Report) -> Self {
+        InitError::Eyre(err.to_string())
+    }
 }
