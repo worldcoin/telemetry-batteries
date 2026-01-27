@@ -2,6 +2,7 @@
 
 use crate::tracing::layers::datadog::datadog_layer;
 use opentelemetry_datadog::DatadogPropagator;
+use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
@@ -22,7 +23,10 @@ pub(crate) fn init(
 
     let datadog_layer = datadog_layer(service_name, endpoint, location);
     let layers = EnvFilter::from_default_env().and_then(datadog_layer);
-    tracing_subscriber::registry().with(layers).init();
+    tracing_subscriber::registry()
+        .with(layers)
+        .with(ErrorLayer::default())
+        .init();
 
     TracingShutdownHandle
 }

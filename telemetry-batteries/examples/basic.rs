@@ -14,8 +14,11 @@
 //! TELEMETRY_TRACING_BACKEND=datadog \
 //! cargo run --example basic
 //! ```
+//!
+//! Note: Datadog backend requires a Tokio runtime.
 
-pub fn main() -> eyre::Result<()> {
+#[tokio::main]
+pub async fn main() -> eyre::Result<()> {
     // Initialize telemetry from environment variables
     let _guard = telemetry_batteries::init()?;
 
