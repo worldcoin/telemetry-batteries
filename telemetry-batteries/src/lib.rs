@@ -144,10 +144,9 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
     eyre::init(&config.eyre)?;
 
     // Initialize tracing based on backend
-    // Note: TracingShutdownHandle is intentionally ignored here - TelemetryGuard handles shutdown
-    match config.tracing.backend {
+    let tracing_handle = match config.tracing.backend {
         TracingBackend::Stdout => {
-            let _ = tracing::stdout::init();
+            Some(tracing::stdout::init(config.tracing.format))
         }
         TracingBackend::Datadog => {
             let service_name = config
@@ -155,21 +154,19 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
                 .as_deref()
                 .ok_or(InitError::MissingConfig("TELEMETRY_SERVICE_NAME (required for Datadog backend)"))?;
 
-            let _ = tracing::datadog::init(
+            Some(tracing::datadog::init(
                 config.tracing.endpoint.as_deref(),
                 service_name,
                 config.tracing.location,
-            );
+            ))
         }
-        TracingBackend::None => {
-            // No tracing initialization
-        }
-    }
+        TracingBackend::None => None,
+    };
 
     // Initialize metrics based on backend
     init_metrics(&config.metrics)?;
 
-    Ok(TelemetryGuard::new(None))
+    Ok(TelemetryGuard::new(tracing_handle))
 }
 
 fn init_metrics(config: &MetricsConfig) -> Result<(), InitError> {

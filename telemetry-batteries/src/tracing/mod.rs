@@ -15,10 +15,15 @@ use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
 pub use tracing_subscriber::Registry;
 
-/// Internal shutdown handle for tracing provider.
-/// Note: This struct no longer performs shutdown - use [`TelemetryGuard`](crate::guard::TelemetryGuard) instead.
+/// Handle that shuts down the tracing provider when dropped.
 #[must_use]
 pub(crate) struct TracingShutdownHandle;
+
+impl Drop for TracingShutdownHandle {
+    fn drop(&mut self) {
+        opentelemetry::global::shutdown_tracer_provider();
+    }
+}
 
 pub fn trace_from_headers(headers: &http::HeaderMap) {
     tracing::Span::current().set_parent(

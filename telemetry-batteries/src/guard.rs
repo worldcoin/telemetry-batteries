@@ -1,6 +1,6 @@
 //! RAII guard for telemetry shutdown.
 
-use tracing_appender::non_blocking::WorkerGuard;
+use crate::tracing::TracingShutdownHandle;
 
 /// Guard that ensures telemetry is properly shut down when dropped.
 ///
@@ -21,21 +21,21 @@ use tracing_appender::non_blocking::WorkerGuard;
 /// ```
 #[must_use]
 pub struct TelemetryGuard {
-    /// Worker guard for non-blocking file appender (if configured).
+    /// Tracing shutdown handle - shuts down the tracer provider on drop.
     #[allow(dead_code)]
-    worker_guard: Option<WorkerGuard>,
+    tracing_handle: Option<TracingShutdownHandle>,
 }
 
 impl TelemetryGuard {
     /// Create a new telemetry guard.
-    pub(crate) fn new(worker_guard: Option<WorkerGuard>) -> Self {
-        Self { worker_guard }
+    pub(crate) fn new(tracing_handle: Option<TracingShutdownHandle>) -> Self {
+        Self { tracing_handle }
     }
 }
 
 impl Drop for TelemetryGuard {
     fn drop(&mut self) {
         tracing::info!("Shutting down telemetry");
-        opentelemetry::global::shutdown_tracer_provider();
+        // TracingShutdownHandle::drop() handles the actual shutdown
     }
 }

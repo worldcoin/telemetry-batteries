@@ -1,13 +1,41 @@
 //! Stdout tracing initialization.
 
-use crate::tracing::layers::stdout::stdout_layer;
+use crate::config::LogFormat;
 use crate::tracing::TracingShutdownHandle;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{
+    fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+};
 
-/// Initialize stdout tracing.
-pub(crate) fn init() -> TracingShutdownHandle {
-    let stdout_layer = stdout_layer();
-    tracing_subscriber::registry().with(stdout_layer).init();
+/// Initialize stdout tracing with the specified format.
+pub(crate) fn init(format: LogFormat) -> TracingShutdownHandle {
+    let filter = EnvFilter::from_default_env();
+
+    match format {
+        LogFormat::Pretty => {
+            let layer = fmt::layer()
+                .with_writer(std::io::stdout)
+                .pretty()
+                .with_target(false)
+                .with_line_number(true)
+                .with_file(true)
+                .with_filter(filter);
+            tracing_subscriber::registry().with(layer).init();
+        }
+        LogFormat::Json => {
+            let layer = fmt::layer()
+                .with_writer(std::io::stdout)
+                .json()
+                .with_filter(filter);
+            tracing_subscriber::registry().with(layer).init();
+        }
+        LogFormat::Compact => {
+            let layer = fmt::layer()
+                .with_writer(std::io::stdout)
+                .compact()
+                .with_filter(filter);
+            tracing_subscriber::registry().with(layer).init();
+        }
+    }
 
     TracingShutdownHandle
 }
@@ -22,7 +50,7 @@ mod tests {
     #[tokio::test]
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
-        let _shutdown_handle = init();
+        let _shutdown_handle = init(LogFormat::Pretty);
 
         for _ in 0..1000 {
             let span = tracing::span!(tracing::Level::INFO, "test_span");
