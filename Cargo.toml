@@ -3,7 +3,7 @@ resolver = "2"
 members = ["telemetry-batteries"]
 
 [workspace.package]
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 description = "Batteries included library to configure tracing, logs and metrics"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
