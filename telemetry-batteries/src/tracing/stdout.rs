@@ -1,19 +1,15 @@
+//! Stdout tracing initialization.
+
 use crate::tracing::layers::stdout::stdout_layer;
 use crate::tracing::TracingShutdownHandle;
-use tracing_subscriber::{
-    layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
-};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-pub struct StdoutBattery;
+/// Initialize stdout tracing.
+pub(crate) fn init() -> TracingShutdownHandle {
+    let stdout_layer = stdout_layer();
+    tracing_subscriber::registry().with(stdout_layer).init();
 
-impl StdoutBattery {
-    pub fn init() -> TracingShutdownHandle {
-        let stdout_layer = stdout_layer();
-        let layers = EnvFilter::from_default_env().and_then(stdout_layer);
-        tracing_subscriber::registry().with(layers).init();
-
-        TracingShutdownHandle
-    }
+    TracingShutdownHandle
 }
 
 #[cfg(test)]
@@ -26,7 +22,7 @@ mod tests {
     #[tokio::test]
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
-        let _shutdown_handle = StdoutBattery::init();
+        let _shutdown_handle = init();
 
         for _ in 0..1000 {
             let span = tracing::span!(tracing::Level::INFO, "test_span");
