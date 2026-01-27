@@ -1,18 +1,41 @@
-use telemetry_batteries::metrics::statsd::StatsdBattery;
-use telemetry_batteries::tracing::datadog::DatadogBattery;
+//! Example using the unified init API with Datadog backend.
+//!
+//! Run with:
+//! ```bash
+//! TELEMETRY_SERVICE_NAME=datadog-example \
+//! TELEMETRY_TRACING_BACKEND=datadog \
+//! TELEMETRY_TRACING_LOCATION=true \
+//! cargo run --example datadog
+//! ```
 
-pub const SERVICE_NAME: &str = "datadog-example";
+use telemetry_batteries::{
+    MetricsBackend, MetricsConfig, StatsdConfig, TelemetryConfig, TracingBackend, TracingConfig,
+};
 
-pub fn main() -> eyre::Result<()> {
-    // Add a new DatadogBattery for tracing/logs
-    // Tracing providers are gracefully shutdown when shutdown handle is dropped.
-    let _shutdown_handle = DatadogBattery::init(None, SERVICE_NAME, None, true);
+pub fn main() -> Result<(), telemetry_batteries::InitError> {
+    // Configure telemetry programmatically
+    let config = TelemetryConfig::builder()
+        .service_name("datadog-example".to_owned())
+        .tracing(
+            TracingConfig::builder()
+                .backend(TracingBackend::Datadog)
+                .location(true)
+                .build(),
+        )
+        .metrics(
+            MetricsConfig::builder()
+                .backend(MetricsBackend::Statsd)
+                .statsd(
+                    StatsdConfig::builder()
+                        .host("localhost".to_owned())
+                        .port(8125)
+                        .build(),
+                )
+                .build(),
+        )
+        .build();
 
-    // Add a new StatsdBattery for metrics
-    StatsdBattery::init("localhost", 8125, 5000, 1024, None)?;
-
-    // Alternatively you can use a prometheus exporter
-    // PrometheusBattery::init()?;
+    let _guard = telemetry_batteries::init_with_config(config)?;
 
     tracing::info!("foo");
     metrics::counter!("foo").increment(1);
