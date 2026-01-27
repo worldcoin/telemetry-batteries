@@ -15,12 +15,27 @@
 //! cargo run --example basic
 //! ```
 
-pub fn main() -> Result<(), telemetry_batteries::InitError> {
+pub fn main() -> eyre::Result<()> {
     // Initialize telemetry from environment variables
     let _guard = telemetry_batteries::init()?;
 
     tracing::info!("Hello from telemetry-batteries!");
     tracing::warn!(answer = 42, "The answer is {}", 42);
 
+    inner()?;
+
     Ok(())
+}
+
+#[tracing::instrument]
+fn inner() -> eyre::Result<()> {
+    tracing::info!("Inside an instrumented function!");
+
+    inner_inner()?;
+
+    Ok(())
+}
+
+fn inner_inner() -> eyre::Result<()> {
+    eyre::bail!("Deep fail");
 }

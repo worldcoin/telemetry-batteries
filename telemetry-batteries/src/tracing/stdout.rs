@@ -2,6 +2,7 @@
 
 use crate::config::LogFormat;
 use crate::tracing::TracingShutdownHandle;
+use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
@@ -19,21 +20,30 @@ pub(crate) fn init(format: LogFormat) -> TracingShutdownHandle {
                 .with_line_number(true)
                 .with_file(true)
                 .with_filter(filter);
-            tracing_subscriber::registry().with(layer).init();
+            tracing_subscriber::registry()
+                .with(layer)
+                .with(ErrorLayer::default())
+                .init();
         }
         LogFormat::Json => {
             let layer = fmt::layer()
                 .with_writer(std::io::stdout)
                 .json()
                 .with_filter(filter);
-            tracing_subscriber::registry().with(layer).init();
+            tracing_subscriber::registry()
+                .with(layer)
+                .with(ErrorLayer::default())
+                .init();
         }
         LogFormat::Compact => {
             let layer = fmt::layer()
                 .with_writer(std::io::stdout)
                 .compact()
                 .with_filter(filter);
-            tracing_subscriber::registry().with(layer).init();
+            tracing_subscriber::registry()
+                .with(layer)
+                .with(ErrorLayer::default())
+                .init();
         }
     }
 
