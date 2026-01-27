@@ -16,8 +16,11 @@ rustls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
 
 [dependencies]
+backtrace.workspace = true
 chrono.workspace = true
+color-eyre.workspace = true
 dirs.workspace = true
+eyre.workspace = true
 http.workspace = true
 metrics.workspace = true
 metrics-exporter-statsd = { workspace = true, optional = true }
@@ -33,10 +36,11 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
+tracing-error.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-serde.workspace = true
 tracing-subscriber.workspace = true
 rand.workspace = true
 
 [dev-dependencies]
-eyre.workspace = true
+anyhow.workspace = true
