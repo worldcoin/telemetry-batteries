@@ -1,25 +1,24 @@
 //! Example using the unified init API with Prometheus metrics.
 //!
-//! Run with:
+//! Run with environment variables:
 //! ```bash
+//! TELEMETRY_PRESET=local \
 //! TELEMETRY_METRICS_BACKEND=prometheus \
 //! TELEMETRY_PROMETHEUS_LISTEN=0.0.0.0:9998 \
 //! cargo run --example prometheus
 //! ```
+//!
+//! Or with programmatic configuration (shown below).
 
 use telemetry_batteries::{
     MetricsBackend, MetricsConfig, PrometheusConfig, PrometheusMode, TelemetryConfig,
-    TracingBackend, TracingConfig,
+    TelemetryPreset,
 };
 
 pub fn main() -> Result<(), telemetry_batteries::InitError> {
-    // Configure telemetry programmatically
+    // Configure telemetry programmatically using presets
     let config = TelemetryConfig::builder()
-        .tracing(
-            TracingConfig::builder()
-                .backend(TracingBackend::Stdout)
-                .build(),
-        )
+        .preset(TelemetryPreset::Local) // pretty logs, no span export
         .metrics(
             MetricsConfig::builder()
                 .backend(MetricsBackend::Prometheus)

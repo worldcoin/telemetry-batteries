@@ -1,27 +1,25 @@
-//! Example using the unified init API with Datadog backend.
+//! Example using the unified init API with Datadog preset.
 //!
-//! Run with:
+//! Run with environment variables:
 //! ```bash
+//! TELEMETRY_PRESET=datadog \
 //! TELEMETRY_SERVICE_NAME=datadog-example \
-//! TELEMETRY_TRACING_BACKEND=datadog \
-//! TELEMETRY_TRACING_LOCATION=true \
 //! cargo run --example datadog
 //! ```
+//!
+//! Or with programmatic configuration (shown below).
 
 use telemetry_batteries::{
-    MetricsBackend, MetricsConfig, StatsdConfig, TelemetryConfig, TracingBackend, TracingConfig,
+    MetricsBackend, MetricsConfig, StatsdConfig, TelemetryConfig, TelemetryPreset,
 };
 
 pub fn main() -> Result<(), telemetry_batteries::InitError> {
-    // Configure telemetry programmatically
+    // Configure telemetry programmatically using presets
     let config = TelemetryConfig::builder()
+        .preset(TelemetryPreset::Datadog)
         .service_name("datadog-example".to_owned())
-        .tracing(
-            TracingConfig::builder()
-                .backend(TracingBackend::Datadog)
-                .location(true)
-                .build(),
-        )
+        // Optional: override log format (default for Datadog is DatadogJson)
+        // .log_format(LogFormat::Pretty)
         .metrics(
             MetricsConfig::builder()
                 .backend(MetricsBackend::Statsd)
@@ -37,7 +35,7 @@ pub fn main() -> Result<(), telemetry_batteries::InitError> {
 
     let _guard = telemetry_batteries::init_with_config(config)?;
 
-    tracing::info!("foo");
+    tracing::info!("Hello from Datadog example!");
     metrics::counter!("foo").increment(1);
 
     Ok(())
