@@ -71,46 +71,6 @@ impl LogFormat {
     }
 }
 
-/// Tracing/logging backend.
-#[deprecated(
-    since = "0.3.0",
-    note = "Use TelemetryPreset instead. TracingBackend will be removed in a future release."
-)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum TracingBackend {
-    /// Output traces to stdout (default).
-    #[default]
-    Stdout,
-    /// Send traces to Datadog Agent.
-    Datadog,
-    /// Disable tracing.
-    None,
-}
-
-#[allow(deprecated)]
-impl TracingBackend {
-    pub(crate) fn from_str(s: &str) -> Result<Self, InitError> {
-        match s.to_lowercase().as_str() {
-            "stdout" => Ok(Self::Stdout),
-            "datadog" => Ok(Self::Datadog),
-            "none" => Ok(Self::None),
-            _ => Err(InitError::InvalidConfig {
-                field: "TELEMETRY_TRACING_BACKEND",
-                message: format!("expected 'stdout', 'datadog', or 'none', got '{s}'"),
-            }),
-        }
-    }
-
-    /// Convert legacy TracingBackend to TelemetryPreset.
-    pub(crate) fn to_preset(self) -> TelemetryPreset {
-        match self {
-            Self::Stdout => TelemetryPreset::Local,
-            Self::Datadog => TelemetryPreset::Datadog,
-            Self::None => TelemetryPreset::None,
-        }
-    }
-}
-
 /// Metrics backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MetricsBackend {
@@ -181,39 +141,6 @@ impl EyreMode {
             }),
         }
     }
-}
-
-/// Tracing configuration.
-#[deprecated(
-    since = "0.3.0",
-    note = "Use TelemetryConfig with preset field instead. TracingConfig will be removed in a future release."
-)]
-#[allow(deprecated)]
-#[derive(Debug, Clone, Builder, Default)]
-pub struct TracingConfig {
-    /// Tracing backend to use.
-    #[builder(default)]
-    pub backend: TracingBackend,
-
-    /// Endpoint for the tracing backend (e.g., Datadog Agent URL).
-    pub endpoint: Option<String>,
-
-    /// Log output format.
-    #[builder(default)]
-    pub format: LogFormat,
-
-    /// Include location information (file, line, module path) in traces.
-    #[builder(default)]
-    pub location: bool,
-
-    /// Log level filter (e.g., "info", "debug", "warn").
-    /// Supports tracing_subscriber's EnvFilter syntax for fine-grained control.
-    #[builder(default = default_log_level())]
-    pub log_level: String,
-}
-
-fn default_log_level() -> String {
-    "info".to_owned()
 }
 
 /// Prometheus-specific configuration.
@@ -318,7 +245,6 @@ pub struct EyreConfig {
 }
 
 /// Main telemetry configuration.
-#[allow(deprecated)]
 #[derive(Debug, Clone, Builder, Default)]
 pub struct TelemetryConfig {
     /// Telemetry preset (sets sensible defaults for logging + span export).
@@ -345,16 +271,6 @@ pub struct TelemetryConfig {
     /// Eyre error reporting configuration.
     #[builder(default)]
     pub eyre: EyreConfig,
-
-    // --- Legacy fields (deprecated) ---
-    /// Legacy tracing configuration.
-    /// Use preset field instead.
-    #[deprecated(
-        since = "0.3.0",
-        note = "Use the preset field instead. This will be removed in a future release."
-    )]
-    #[builder(default)]
-    pub tracing: TracingConfig,
 }
 
 impl TelemetryConfig {
@@ -378,13 +294,12 @@ impl TelemetryConfig {
     }
 }
 
-#[allow(deprecated)]
 impl TelemetryConfig {
     /// Load configuration from environment variables.
     ///
     /// # Environment Variables
     ///
-    /// ## Preset-based configuration (recommended)
+    /// ## Preset configuration
     ///
     /// | Variable | Values | Default |
     /// |----------|--------|---------|
@@ -407,62 +322,22 @@ impl TelemetryConfig {
     /// | `TELEMETRY_STATSD_HOST` | string | `localhost` |
     /// | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
     /// | `TELEMETRY_STATSD_PREFIX` | string | - |
-    ///
-    /// ## Legacy environment variables (deprecated)
-    ///
-    /// | Variable | Mapped to |
-    /// |----------|-----------|
-    /// | `TELEMETRY_TRACING_BACKEND=stdout` | `TELEMETRY_PRESET=local` |
-    /// | `TELEMETRY_TRACING_BACKEND=datadog` | `TELEMETRY_PRESET=datadog` |
-    /// | `TELEMETRY_TRACING_BACKEND=none` | `TELEMETRY_PRESET=none` |
-    /// | `TELEMETRY_TRACING_ENDPOINT` | `TELEMETRY_DATADOG_ENDPOINT` |
     pub fn from_env() -> Result<Self, InitError> {
         let service_name = env::var("TELEMETRY_SERVICE_NAME").ok();
 
-        // Determine preset: new env var takes precedence, fall back to legacy mapping
-        let preset = if let Ok(preset_str) = env::var("TELEMETRY_PRESET") {
-            TelemetryPreset::from_str(&preset_str)?
-        } else if let Ok(backend_str) = env::var("TELEMETRY_TRACING_BACKEND") {
-            // Legacy backward compatibility
-            TracingBackend::from_str(&backend_str)?.to_preset()
-        } else {
-            TelemetryPreset::default()
-        };
+        let preset = env::var("TELEMETRY_PRESET")
+            .ok()
+            .map(|s| TelemetryPreset::from_str(&s))
+            .transpose()?
+            .unwrap_or_default();
 
-        // Log format override (optional - preset provides default)
         let log_format = env::var("TELEMETRY_LOG_FORMAT")
             .ok()
             .map(|s| LogFormat::from_str(&s))
             .transpose()?;
 
-        // Datadog endpoint: new env var takes precedence over legacy
-        let datadog_endpoint = env::var("TELEMETRY_DATADOG_ENDPOINT")
-            .or_else(|_| env::var("TELEMETRY_TRACING_ENDPOINT"))
-            .ok();
-
-        // OTLP endpoint
+        let datadog_endpoint = env::var("TELEMETRY_DATADOG_ENDPOINT").ok();
         let otlp_endpoint = env::var("TELEMETRY_OTLP_ENDPOINT").ok();
-
-        // --- Legacy TracingConfig for backward compatibility ---
-        let log_level = env::var("RUST_LOG")
-            .or_else(|_| env::var("TELEMETRY_LOG_LEVEL"))
-            .unwrap_or_else(|_| "info".to_owned());
-
-        let tracing = TracingConfig {
-            backend: env::var("TELEMETRY_TRACING_BACKEND")
-                .ok()
-                .map(|s| TracingBackend::from_str(&s))
-                .transpose()?
-                .unwrap_or_default(),
-            endpoint: datadog_endpoint.clone(),
-            format: log_format.unwrap_or_default(),
-            location: env::var("TELEMETRY_TRACING_LOCATION")
-                .ok()
-                .map(|s| parse_bool(&s, "TELEMETRY_TRACING_LOCATION"))
-                .transpose()?
-                .unwrap_or(false),
-            log_level,
-        };
 
         // --- Metrics configuration ---
         let prometheus = PrometheusConfig {
@@ -542,18 +417,6 @@ impl TelemetryConfig {
             otlp_endpoint,
             metrics,
             eyre,
-            tracing,
         })
-    }
-}
-
-fn parse_bool(s: &str, field: &'static str) -> Result<bool, InitError> {
-    match s.to_lowercase().as_str() {
-        "true" | "1" | "yes" => Ok(true),
-        "false" | "0" | "no" => Ok(false),
-        _ => Err(InitError::InvalidConfig {
-            field,
-            message: format!("expected 'true' or 'false', got '{s}'"),
-        }),
     }
 }

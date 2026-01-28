@@ -59,21 +59,6 @@
 //! TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service TELEMETRY_LOG_FORMAT=pretty cargo run
 //! ```
 //!
-//! # Builder Pattern
-//!
-//! For programmatic configuration, use the builder pattern:
-//!
-//! ```ignore
-//! use telemetry_batteries::{TelemetryConfig, TelemetryPreset};
-//!
-//! let config = TelemetryConfig::builder()
-//!     .preset(TelemetryPreset::Datadog)
-//!     .service_name("my-service".to_owned())
-//!     .build();
-//!
-//! let _guard = telemetry_batteries::init_with_config(config)?;
-//! ```
-
 pub mod config;
 pub mod error;
 pub mod eyre;
@@ -86,10 +71,6 @@ pub use config::{
     EyreConfig, EyreMode, LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig,
     PrometheusMode, StatsdConfig, TelemetryConfig, TelemetryPreset,
 };
-
-// Re-export deprecated types for backward compatibility
-#[allow(deprecated)]
-pub use config::{TracingBackend, TracingConfig};
 pub use error::InitError;
 pub use guard::TelemetryGuard;
 
@@ -138,8 +119,8 @@ pub fn init() -> Result<TelemetryGuard, InitError> {
 
 /// Initialize telemetry with the given configuration.
 ///
-/// Use this when you need programmatic control over the configuration
-/// instead of loading from environment variables.
+/// Use this when you need programmatic control over the configuration.
+/// For most use cases, prefer [`init()`] which loads from environment variables.
 ///
 /// Returns a [`TelemetryGuard`] that must be kept alive for the duration of
 /// the application. When dropped, it gracefully shuts down the tracing provider.
@@ -150,19 +131,6 @@ pub fn init() -> Result<TelemetryGuard, InitError> {
 /// - Required configuration is missing (e.g., `service_name` for Datadog/Otel)
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
-///
-/// # Example
-///
-/// ```ignore
-/// use telemetry_batteries::{TelemetryConfig, TelemetryPreset};
-///
-/// let config = TelemetryConfig::builder()
-///     .preset(TelemetryPreset::Datadog)
-///     .service_name("my-service".to_owned())
-///     .build();
-///
-/// let _guard = telemetry_batteries::init_with_config(config)?;
-/// ```
 pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitError> {
     // Initialize eyre error reporting first
     eyre::init(&config.eyre)?;
