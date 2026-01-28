@@ -16,17 +16,27 @@
 //!
 //! # Configuration
 //!
-//! Configuration is loaded from environment variables by default:
+//! Configuration is loaded from environment variables using **presets**:
+//!
+//! ## Presets
+//!
+//! | Preset | Log Format | Log Output | Span Export | Use Case |
+//! |--------|------------|------------|-------------|----------|
+//! | `local` | pretty | stdout | none | Local development |
+//! | `datadog` | datadog_json | stdout | Datadog Agent | Production with Datadog |
+//! | `otel` | json | stdout | OTLP | Production with OTel collector |
+//! | `none` | - | none | none | Disable telemetry |
+//!
+//! ## Environment Variables
 //!
 //! | Variable | Values | Default |
 //! |----------|--------|---------|
-//! | `TELEMETRY_SERVICE_NAME` | string | required for datadog |
-//! | `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | EnvFilter syntax | `info` (checks `RUST_LOG` first) |
-//! | `TELEMETRY_LOG_FORMAT` | pretty/json/compact | `json` |
-//! | `TELEMETRY_TRACING_BACKEND` | stdout/datadog/none | `stdout` |
-//! | `TELEMETRY_TRACING_ENDPOINT` | url | `http://localhost:8126` |
-//! | `TELEMETRY_TRACING_LOCATION` | true/false | `false` |
-//! | `TELEMETRY_EYRE_MODE` | color/json | `color` |
+//! | `TELEMETRY_PRESET` | local/datadog/otel/none | `local` |
+//! | `TELEMETRY_SERVICE_NAME` | string | required for datadog/otel |
+//! | `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | EnvFilter syntax | `info` |
+//! | `TELEMETRY_LOG_FORMAT` | pretty/json/compact/datadog_json | (from preset) |
+//! | `TELEMETRY_DATADOG_ENDPOINT` | url | `http://localhost:8126` |
+//! | `TELEMETRY_OTLP_ENDPOINT` | url | `http://localhost:4317` |
 //! | `TELEMETRY_METRICS_BACKEND` | prometheus/statsd/none | `none` |
 //! | `TELEMETRY_PROMETHEUS_MODE` | http/push | `http` |
 //! | `TELEMETRY_PROMETHEUS_LISTEN` | addr:port | `0.0.0.0:9090` |
@@ -36,18 +46,29 @@
 //! | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
 //! | `TELEMETRY_STATSD_PREFIX` | string | - |
 //!
+//! # Examples
+//!
+//! ```bash
+//! # Local development - pretty logs, no tracing
+//! TELEMETRY_PRESET=local cargo run
+//!
+//! # Datadog production
+//! TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service cargo run
+//!
+//! # Datadog but with pretty logs for debugging
+//! TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service TELEMETRY_LOG_FORMAT=pretty cargo run
+//! ```
+//!
 //! # Builder Pattern
 //!
 //! For programmatic configuration, use the builder pattern:
 //!
 //! ```ignore
-//! use telemetry_batteries::{TelemetryConfig, TracingConfig, TracingBackend};
+//! use telemetry_batteries::{TelemetryConfig, TelemetryPreset};
 //!
 //! let config = TelemetryConfig::builder()
+//!     .preset(TelemetryPreset::Datadog)
 //!     .service_name("my-service".to_owned())
-//!     .tracing(TracingConfig::builder()
-//!         .backend(TracingBackend::Datadog)
-//!         .build())
 //!     .build();
 //!
 //! let _guard = telemetry_batteries::init_with_config(config)?;
@@ -63,8 +84,12 @@ pub mod tracing;
 
 pub use config::{
     EyreConfig, EyreMode, LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig,
-    PrometheusMode, StatsdConfig, TelemetryConfig, TracingBackend, TracingConfig,
+    PrometheusMode, StatsdConfig, TelemetryConfig, TelemetryPreset,
 };
+
+// Re-export deprecated types for backward compatibility
+#[allow(deprecated)]
+pub use config::{TracingBackend, TracingConfig};
 pub use error::InitError;
 pub use guard::TelemetryGuard;
 
@@ -122,20 +147,18 @@ pub fn init() -> Result<TelemetryGuard, InitError> {
 /// # Errors
 ///
 /// Returns an error if:
-/// - Required configuration is missing (e.g., `service_name` for Datadog)
+/// - Required configuration is missing (e.g., `service_name` for Datadog/Otel)
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
 ///
 /// # Example
 ///
 /// ```ignore
-/// use telemetry_batteries::{TelemetryConfig, TracingConfig, TracingBackend};
+/// use telemetry_batteries::{TelemetryConfig, TelemetryPreset};
 ///
 /// let config = TelemetryConfig::builder()
+///     .preset(TelemetryPreset::Datadog)
 ///     .service_name("my-service".to_owned())
-///     .tracing(TracingConfig::builder()
-///         .backend(TracingBackend::Datadog)
-///         .build())
 ///     .build();
 ///
 /// let _guard = telemetry_batteries::init_with_config(config)?;
@@ -144,25 +167,33 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
     // Initialize eyre error reporting first
     eyre::init(&config.eyre)?;
 
-    // Initialize tracing based on backend
-    let tracing_handle = match config.tracing.backend {
-        TracingBackend::Stdout => {
-            Some(tracing::stdout::init(config.tracing.format, &config.tracing.log_level))
+    let log_format = config.effective_log_format();
+    let log_level = TelemetryConfig::log_level_from_env();
+
+    // Initialize tracing based on preset
+    let tracing_handle = match config.preset {
+        TelemetryPreset::Local => {
+            Some(tracing::stdout::init(log_format, &log_level))
         }
-        TracingBackend::Datadog => {
+        TelemetryPreset::Datadog => {
             let service_name = config
                 .service_name
                 .as_deref()
-                .ok_or(InitError::MissingConfig("TELEMETRY_SERVICE_NAME (required for Datadog backend)"))?;
+                .ok_or(InitError::MissingConfig("TELEMETRY_SERVICE_NAME (required for Datadog preset)"))?;
 
             Some(tracing::datadog::init(
-                config.tracing.endpoint.as_deref(),
+                config.datadog_endpoint.as_deref(),
                 service_name,
-                config.tracing.location,
-                &config.tracing.log_level,
+                log_format,
+                &log_level,
             ))
         }
-        TracingBackend::None => None,
+        TelemetryPreset::Otel => {
+            return Err(InitError::FeatureNotCompiled(
+                "otel preset is not yet implemented",
+            ));
+        }
+        TelemetryPreset::None => None,
     };
 
     // Initialize metrics based on backend
