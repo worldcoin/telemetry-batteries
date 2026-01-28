@@ -7,9 +7,9 @@ use tracing_subscriber::{
     fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
 
-/// Initialize stdout tracing with the specified format.
-pub(crate) fn init(format: LogFormat) -> TracingShutdownHandle {
-    let filter = EnvFilter::from_default_env();
+/// Initialize stdout tracing with the specified format and log level.
+pub(crate) fn init(format: LogFormat, log_level: &str) -> TracingShutdownHandle {
+    let filter = EnvFilter::new(log_level);
 
     match format {
         LogFormat::Pretty => {
@@ -60,7 +60,7 @@ mod tests {
     #[tokio::test]
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
-        let _shutdown_handle = init(LogFormat::Pretty);
+        let _shutdown_handle = init(LogFormat::Pretty, "info");
 
         for _ in 0..1000 {
             let span = tracing::span!(tracing::Level::INFO, "test_span");

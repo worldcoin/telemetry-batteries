@@ -16,13 +16,14 @@ pub(crate) fn init(
     endpoint: Option<&str>,
     service_name: &str,
     location: bool,
+    log_level: &str,
 ) -> TracingShutdownHandle {
     opentelemetry::global::set_text_map_propagator(DatadogPropagator::new());
 
     let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
     let (dd_layer, provider) = datadog_layer(service_name, endpoint, location);
-    let layers = EnvFilter::from_default_env().and_then(dd_layer);
+    let layers = EnvFilter::new(log_level).and_then(dd_layer);
     tracing_subscriber::registry()
         .with(layers)
         .with(ErrorLayer::default())
@@ -42,7 +43,7 @@ mod tests {
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
         let service_name = "test_service";
-        let _shutdown_handle = init(None, service_name, false);
+        let _shutdown_handle = init(None, service_name, false, "info");
 
         for _ in 0..10 {
             tracing::info!("test");

@@ -26,6 +26,7 @@ All configuration can be done via environment variables:
 | Variable | Values | Default |
 |----------|--------|---------|
 | `TELEMETRY_SERVICE_NAME` | string | required for Datadog |
+| `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` (checks `RUST_LOG` first) |
 | `TELEMETRY_TRACING_BACKEND` | `stdout`, `datadog`, `none` | `stdout` |
 | `TELEMETRY_TRACING_ENDPOINT` | url | `http://localhost:8126` |
 | `TELEMETRY_TRACING_LOCATION` | `true`, `false` | `false` |
@@ -78,7 +79,7 @@ fn main() -> Result<(), telemetry_batteries::InitError> {
 
 ### Tracing Backends
 
-- **stdout** (default): Pretty-printed logs to stdout, respects `RUST_LOG`
+- **stdout** (default): Logs to stdout with configurable format
 - **datadog**: Sends traces to Datadog Agent with JSON-formatted logs
 - **none**: Disables tracing
 

@@ -147,6 +147,15 @@ pub struct TracingConfig {
     /// Include location information (file, line, module path) in traces.
     #[builder(default)]
     pub location: bool,
+
+    /// Log level filter (e.g., "info", "debug", "warn").
+    /// Supports tracing_subscriber's EnvFilter syntax for fine-grained control.
+    #[builder(default = default_log_level())]
+    pub log_level: String,
+}
+
+fn default_log_level() -> String {
+    "info".to_owned()
 }
 
 /// Prometheus-specific configuration.
@@ -277,7 +286,7 @@ impl TelemetryConfig {
     /// | Variable | Values | Default |
     /// |----------|--------|---------|
     /// | `TELEMETRY_SERVICE_NAME` | string | required for datadog |
-    /// | `TELEMETRY_LOG_LEVEL` | trace/debug/info/warn/error | `info` (respects `RUST_LOG` first) |
+    /// | `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | EnvFilter syntax | `info` (checks `RUST_LOG` first) |
     /// | `TELEMETRY_LOG_FORMAT` | pretty/json/compact | `json` |
     /// | `TELEMETRY_TRACING_BACKEND` | stdout/datadog/none | `stdout` |
     /// | `TELEMETRY_TRACING_ENDPOINT` | url | `http://localhost:8126` |
@@ -293,6 +302,11 @@ impl TelemetryConfig {
     /// | `TELEMETRY_STATSD_PREFIX` | string | - |
     pub fn from_env() -> Result<Self, InitError> {
         let service_name = env::var("TELEMETRY_SERVICE_NAME").ok();
+
+        // RUST_LOG takes precedence over TELEMETRY_LOG_LEVEL
+        let log_level = env::var("RUST_LOG")
+            .or_else(|_| env::var("TELEMETRY_LOG_LEVEL"))
+            .unwrap_or_else(|_| "info".to_owned());
 
         let tracing = TracingConfig {
             backend: env::var("TELEMETRY_TRACING_BACKEND")
@@ -311,6 +325,7 @@ impl TelemetryConfig {
                 .map(|s| parse_bool(&s, "TELEMETRY_TRACING_LOCATION"))
                 .transpose()?
                 .unwrap_or(false),
+            log_level,
         };
 
         let prometheus = PrometheusConfig {

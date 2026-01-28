@@ -21,6 +21,7 @@
 //! | Variable | Values | Default |
 //! |----------|--------|---------|
 //! | `TELEMETRY_SERVICE_NAME` | string | required for datadog |
+//! | `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | EnvFilter syntax | `info` (checks `RUST_LOG` first) |
 //! | `TELEMETRY_LOG_FORMAT` | pretty/json/compact | `json` |
 //! | `TELEMETRY_TRACING_BACKEND` | stdout/datadog/none | `stdout` |
 //! | `TELEMETRY_TRACING_ENDPOINT` | url | `http://localhost:8126` |
@@ -146,7 +147,7 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
     // Initialize tracing based on backend
     let tracing_handle = match config.tracing.backend {
         TracingBackend::Stdout => {
-            Some(tracing::stdout::init(config.tracing.format))
+            Some(tracing::stdout::init(config.tracing.format, &config.tracing.log_level))
         }
         TracingBackend::Datadog => {
             let service_name = config
@@ -158,6 +159,7 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
                 config.tracing.endpoint.as_deref(),
                 service_name,
                 config.tracing.location,
+                &config.tracing.log_level,
             ))
         }
         TracingBackend::None => None,
