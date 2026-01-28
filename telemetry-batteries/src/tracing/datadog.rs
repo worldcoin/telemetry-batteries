@@ -1,5 +1,6 @@
 //! Datadog tracing initialization.
 
+use crate::config::LogFormat;
 use crate::tracing::layers::datadog::datadog_layer;
 use opentelemetry_datadog::DatadogPropagator;
 use tracing_error::ErrorLayer;
@@ -12,17 +13,19 @@ use super::TracingShutdownHandle;
 pub(crate) const DEFAULT_DATADOG_AGENT_ENDPOINT: &str = "http://localhost:8126";
 
 /// Initialize Datadog tracing with the given configuration.
+///
+/// This sets up both logging (with Datadog trace correlation) and span export to the Datadog Agent.
 pub(crate) fn init(
     endpoint: Option<&str>,
     service_name: &str,
-    location: bool,
+    log_format: LogFormat,
     log_level: &str,
 ) -> TracingShutdownHandle {
     opentelemetry::global::set_text_map_propagator(DatadogPropagator::new());
 
     let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
-    let (dd_layer, provider) = datadog_layer(service_name, endpoint, location);
+    let (dd_layer, provider) = datadog_layer(service_name, endpoint, log_format);
     let layers = EnvFilter::new(log_level).and_then(dd_layer);
     tracing_subscriber::registry()
         .with(layers)
@@ -43,7 +46,7 @@ mod tests {
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
         let service_name = "test_service";
-        let _shutdown_handle = init(None, service_name, false, "info");
+        let _shutdown_handle = init(None, service_name, LogFormat::DatadogJson, "info");
 
         for _ in 0..10 {
             tracing::info!("test");

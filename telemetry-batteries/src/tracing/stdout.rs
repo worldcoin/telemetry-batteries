@@ -8,6 +8,9 @@ use tracing_subscriber::{
 };
 
 /// Initialize stdout tracing with the specified format and log level.
+///
+/// Note: For `DatadogJson` format without Datadog span export, this falls back to
+/// standard JSON format since trace correlation requires the OpenTelemetry layer.
 pub(crate) fn init(format: LogFormat, log_level: &str) -> TracingShutdownHandle {
     let filter = EnvFilter::new(log_level);
 
@@ -25,7 +28,9 @@ pub(crate) fn init(format: LogFormat, log_level: &str) -> TracingShutdownHandle 
                 .with(ErrorLayer::default())
                 .init();
         }
-        LogFormat::Json => {
+        LogFormat::Json | LogFormat::DatadogJson => {
+            // DatadogJson without the Datadog backend falls back to standard JSON
+            // since trace correlation requires the OpenTelemetry layer.
             let layer = fmt::layer()
                 .with_writer(std::io::stdout)
                 .json()
