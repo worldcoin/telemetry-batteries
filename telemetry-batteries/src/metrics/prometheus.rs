@@ -18,6 +18,7 @@ pub(crate) fn init(config: &PrometheusConfig) -> Result<(), BuildError> {
                     config.interval,
                     None::<String>,
                     None::<String>,
+                    false, // use_http_post_method - use PUT by default per prometheus spec
                 )?
             } else {
                 // If no endpoint is provided for push mode, fall back to http

@@ -11,13 +11,15 @@
 use telemetry_batteries::tracing::layers::{datadog::datadog_layer, stdout_layer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-pub fn main() -> eyre::Result<()> {
+#[tokio::main]
+pub async fn main() -> eyre::Result<()> {
     // Initialize tracing using layers directly for custom composition
-    let datadog_layer = datadog_layer("datadog-example", "http://localhost:8126", true);
+    // datadog_layer returns (layer, provider) - keep the provider alive for proper shutdown
+    let (dd_layer, _provider) = datadog_layer("datadog-example", "http://localhost:8126", true);
 
     tracing_subscriber::registry()
         .with(stdout_layer())
-        .with(datadog_layer)
+        .with(dd_layer)
         .init();
 
     tracing::info!("Hello from custom tracing!");

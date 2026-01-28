@@ -47,7 +47,7 @@ pub(crate) fn init(format: LogFormat) -> TracingShutdownHandle {
         }
     }
 
-    TracingShutdownHandle
+    TracingShutdownHandle::empty()
 }
 
 #[cfg(test)]

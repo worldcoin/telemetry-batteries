@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use chrono::Utc;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
-use opentelemetry_sdk::trace::{Config, Sampler};
+use opentelemetry_sdk::trace::{Config, Sampler, SdkTracerProvider};
 use serde::ser::SerializeMap;
 use serde::Serializer;
 use tracing::{Event, Subscriber};
@@ -13,21 +14,19 @@ use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{fmt, Layer};
 
 use crate::tracing::id_generator::ReducedIdGenerator;
-use crate::tracing::{
-    opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
-};
+use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
 
 pub fn datadog_layer<S>(
     service_name: &str,
     endpoint: &str,
     location: bool,
-) -> impl Layer<S>
+) -> (impl Layer<S>, SdkTracerProvider)
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    let tracer_config = Config::default()
-        .with_id_generator(ReducedIdGenerator)
-        .with_sampler(Sampler::AlwaysOn);
+    let mut tracer_config = Config::default();
+    tracer_config.sampler = Box::new(Sampler::AlwaysOn);
+    tracer_config.id_generator = Box::new(ReducedIdGenerator);
 
     // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
     // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved
@@ -37,19 +36,24 @@ where
         .build()
         .expect("Could not init datadog http_client");
 
-    let tracer = opentelemetry_datadog::new_pipeline()
+    let provider = opentelemetry_datadog::new_pipeline()
         .with_http_client(dd_http_client)
         .with_agent_endpoint(endpoint)
         .with_trace_config(tracer_config)
         .with_service_name(service_name)
         .with_api_version(ApiVersion::Version05)
-        .install_batch(opentelemetry_sdk::runtime::Tokio)
+        .install_batch()
         .expect("failed to install OpenTelemetry datadog tracer, perhaps check which async runtime is being used");
 
+    // Set as global tracer provider
+    opentelemetry::global::set_tracer_provider(provider.clone());
+
+    // Use a static string for the tracer name since provider.tracer() requires 'static
+    let tracer = provider.tracer("telemetry-batteries");
     let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
     let dd_format_layer = datadog_format_layer(location);
 
-    dd_format_layer.and_then(otel_layer)
+    (dd_format_layer.and_then(otel_layer), provider)
 }
 
 pub fn datadog_format_layer<S>(location: bool) -> impl Layer<S>

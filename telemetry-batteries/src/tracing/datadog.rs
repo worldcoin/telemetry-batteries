@@ -21,14 +21,14 @@ pub(crate) fn init(
 
     let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
-    let datadog_layer = datadog_layer(service_name, endpoint, location);
-    let layers = EnvFilter::from_default_env().and_then(datadog_layer);
+    let (dd_layer, provider) = datadog_layer(service_name, endpoint, location);
+    let layers = EnvFilter::from_default_env().and_then(dd_layer);
     tracing_subscriber::registry()
         .with(layers)
         .with(ErrorLayer::default())
         .init();
 
-    TracingShutdownHandle
+    TracingShutdownHandle::new(provider)
 }
 
 #[cfg(test)]

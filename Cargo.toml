@@ -17,11 +17,11 @@ eyre = "0.6"
 http = "1"
 metrics = "0.24"
 metrics-exporter-statsd = "0.9"
-metrics-exporter-prometheus = "0.16"
-opentelemetry = "0.26"
-opentelemetry-datadog = { version = "0.14", features = ["reqwest-client"] }
-opentelemetry-http = "0.26"
-opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+metrics-exporter-prometheus = "0.18"
+opentelemetry = "0.31"
+opentelemetry-datadog = { version = "0.19", features = ["reqwest-client"] }
+opentelemetry-http = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
 proc-macro2 = "1.0.60"
 quote = "1"
 rand = "0.8"
@@ -33,7 +33,7 @@ thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-appender = "0.2"
-tracing-opentelemetry = "0.27"
+tracing-opentelemetry = "0.32"
 tracing-serde = "0.1"
 tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
