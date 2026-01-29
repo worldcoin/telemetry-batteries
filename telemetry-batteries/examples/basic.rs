@@ -25,6 +25,8 @@
 //!
 //! Note: Datadog preset requires a Tokio runtime.
 
+use std::time::Duration;
+
 #[tokio::main]
 pub async fn main() -> eyre::Result<()> {
     // Initialize telemetry from environment variables
@@ -33,20 +35,28 @@ pub async fn main() -> eyre::Result<()> {
     tracing::info!("Hello from telemetry-batteries!");
     tracing::warn!(answer = 42, "The answer is {}", 42);
 
-    inner()?;
+    tracing::info!("Press Ctrl+C to exit...");
+
+    tokio::select! {
+        _ = inner() => {}
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Shutting down");
+        }
+    }
 
     Ok(())
 }
 
 #[tracing::instrument]
-fn inner() -> eyre::Result<()> {
-    tracing::info!("Inside an instrumented function!");
+async fn inner() {
+    loop {
+        contained_span().await;
 
-    inner_inner()?;
-
-    Ok(())
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 }
 
-fn inner_inner() -> eyre::Result<()> {
-    eyre::bail!("Deep fail");
+#[tracing::instrument]
+async fn contained_span() {
+    tracing::info!("Inside a contained span");
 }

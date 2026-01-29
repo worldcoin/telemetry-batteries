@@ -1,4 +1,21 @@
 services:
+  app:
+    image: rust:1.93-bookworm
+    container_name: app
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - cargo-cache:/usr/local/cargo/registry
+    environment:
+      - TELEMETRY_PRESET=datadog
+      - TELEMETRY_SERVICE_NAME=app
+      - TELEMETRY_METRICS_BACKEND=prometheus
+      - TELEMETRY_PROMETHEUS_LISTEN=0.0.0.0:9091
+      - RUST_LOG=info
+    command: cargo run --example basic --features metrics-prometheus
+    labels:
+      - "logging=alloy"
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -24,9 +41,9 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
 
   loki:
     image: grafana/loki:latest
@@ -38,14 +55,13 @@ services:
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
 
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
     volumes:
-      - /var/log:/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./promtail/promtail-config.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+    command: run /etc/alloy/config.alloy
     depends_on:
       - loki
 
@@ -53,3 +69,4 @@ volumes:
   grafana-data:
   prometheus-data:
   loki-data:
+  cargo-cache:

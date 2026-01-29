@@ -7,9 +7,8 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Scrape metrics from your app running on host
-  # The app should expose metrics on port 9090 (default for telemetry-batteries)
+  # Scrape metrics from the app container
   - job_name: 'app'
     static_configs:
-      - targets: ['host.docker.internal:9090']
+      - targets: ['app:9091']
     scrape_interval: 5s
