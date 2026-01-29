@@ -47,7 +47,9 @@ async fn root() -> &'static str {
 }
 
 #[tracing::instrument]
-async fn hello(axum::extract::Path(name): axum::extract::Path<String>) -> String {
+async fn hello(
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> String {
     tracing::info!(name = %name, "Handling hello request");
     format!("Hello, {name}!")
 }
