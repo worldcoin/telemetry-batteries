@@ -103,9 +103,24 @@ TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service TELEMETRY_LOG_FORMAT=
 TELEMETRY_METRICS_BACKEND=prometheus cargo run
 ```
 
-## Trace Propagation
+## Distributed Tracing
 
-For distributed tracing, use the trace propagation utilities:
+For distributed tracing, use the `TraceLayer` middleware with axum or any Tower-compatible framework:
+
+```rust
+use axum::{routing::get, Router};
+use telemetry_batteries::tracing::middleware::TraceLayer;
+
+let app = Router::new()
+    .route("/", get(handler))
+    .layer(TraceLayer);
+```
+
+The middleware automatically:
+- Extracts trace context from incoming request headers (e.g., `traceparent`)
+- Injects trace context into outgoing response headers
+
+For manual control, use the lower-level functions:
 
 ```rust
 use telemetry_batteries::tracing::{trace_from_headers, trace_to_headers};
@@ -137,15 +152,19 @@ fn make_request(headers: &mut http::HeaderMap) {
 See the [examples](telemetry-batteries/examples) directory:
 
 - `basic.rs` - Minimal setup with environment variables
+- `axum_tracing.rs` - Axum server with distributed trace propagation
 
-Run the example:
+Run the examples:
 
 ```bash
-# Local development (default)
+# Basic example with local preset
 cargo run -p telemetry-batteries --example basic
 
-# With Datadog
+# Basic example with Datadog
 TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run -p telemetry-batteries --example basic
+
+# Axum server with trace propagation
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run -p telemetry-batteries --example axum_tracing
 ```
 
 ## License

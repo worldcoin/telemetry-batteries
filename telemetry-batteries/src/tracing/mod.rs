@@ -1,6 +1,7 @@
 pub(crate) mod datadog;
 pub(crate) mod id_generator;
 pub mod layers;
+pub mod middleware;
 pub(crate) mod stdout;
 
 use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
