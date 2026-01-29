@@ -5,7 +5,7 @@ Batteries-included telemetry for Rust applications. Configure tracing, metrics, 
 ## Quick Start
 
 ```rust
-fn main() -> Result<(), telemetry_batteries::InitError> {
+fn main() -> eyre::Result<()> {
     // Initialize from environment variables
     let _guard = telemetry_batteries::init()?;
 
@@ -19,19 +19,35 @@ The guard must be kept alive for the duration of your application. When dropped,
 
 ## Configuration
 
-### Environment Variables
+Configuration is done via environment variables using **presets**:
 
-All configuration can be done via environment variables:
+### Presets
+
+| Preset | Log Format | Log Output | Span Export | Use Case |
+|--------|------------|------------|-------------|----------|
+| `local` | pretty | stdout | none | Local development |
+| `datadog` | datadog_json | stdout | Datadog Agent | Production with Datadog |
+| `otel` | json | stdout | OTLP | Production with OTel collector (not yet implemented) |
+| `none` | - | none | none | Disable telemetry |
+
+### Environment Variables
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `TELEMETRY_SERVICE_NAME` | string | required for Datadog |
-| `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` (checks `RUST_LOG` first) |
-| `TELEMETRY_TRACING_BACKEND` | `stdout`, `datadog`, `none` | `stdout` |
-| `TELEMETRY_TRACING_ENDPOINT` | url | `http://localhost:8126` |
-| `TELEMETRY_TRACING_LOCATION` | `true`, `false` | `false` |
-| `TELEMETRY_LOG_FORMAT` | `pretty`, `json`, `compact` | `json` |
+| `TELEMETRY_PRESET` | `local`, `datadog`, `otel`, `none` | `local` |
+| `TELEMETRY_SERVICE_NAME` | string | required for datadog/otel |
+| `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
+| `TELEMETRY_LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | (from preset) |
+| `TELEMETRY_DATADOG_ENDPOINT` | url | `http://localhost:8126` |
+| `TELEMETRY_OTLP_ENDPOINT` | url | `http://localhost:4317` |
 | `TELEMETRY_EYRE_MODE` | `color`, `json` | `color` |
+
+### Metrics Configuration
+
+Metrics are configured independently from presets:
+
+| Variable | Values | Default |
+|----------|--------|---------|
 | `TELEMETRY_METRICS_BACKEND` | `prometheus`, `statsd`, `none` | `none` |
 | `TELEMETRY_PROMETHEUS_MODE` | `http`, `push` | `http` |
 | `TELEMETRY_PROMETHEUS_LISTEN` | `addr:port` | `0.0.0.0:9090` |
@@ -47,17 +63,15 @@ For more control, use the builder pattern:
 
 ```rust
 use telemetry_batteries::{
-    TelemetryConfig, TracingConfig, TracingBackend,
+    TelemetryConfig, TelemetryPreset, LogFormat,
     MetricsConfig, MetricsBackend, StatsdConfig,
 };
 
-fn main() -> Result<(), telemetry_batteries::InitError> {
+fn main() -> eyre::Result<()> {
     let config = TelemetryConfig::builder()
+        .preset(TelemetryPreset::Datadog)
         .service_name("my-service".to_owned())
-        .tracing(TracingConfig::builder()
-            .backend(TracingBackend::Datadog)
-            .location(true)
-            .build())
+        .log_format(LogFormat::Pretty)  // Override preset's log format
         .metrics(MetricsConfig::builder()
             .backend(MetricsBackend::Statsd)
             .statsd(StatsdConfig::builder()
@@ -75,26 +89,21 @@ fn main() -> Result<(), telemetry_batteries::InitError> {
 }
 ```
 
-## Features
+## Usage Examples
 
-### Tracing Backends
+```bash
+# Local development - pretty logs, no tracing
+cargo run
 
-- **stdout** (default): Logs to stdout with configurable format
-- **datadog**: Sends traces to Datadog Agent with JSON-formatted logs
-- **none**: Disables tracing
+# Datadog production
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service cargo run
 
-### Metrics Backends
+# Datadog with pretty logs for debugging
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service TELEMETRY_LOG_FORMAT=pretty cargo run
 
-- **prometheus**: Exposes metrics via HTTP endpoint or pushes to a gateway
-- **statsd**: Sends metrics to a StatsD server
-- **none** (default): Disables metrics
-
-### Error Reporting
-
-Integrates with [eyre](https://docs.rs/eyre) for error handling:
-
-- **color** (default): Human-readable colored output with backtraces
-- **json**: Machine-readable JSON output for production
+# With Prometheus metrics
+TELEMETRY_METRICS_BACKEND=prometheus cargo run
+```
 
 ## Trace Propagation
 
@@ -116,22 +125,6 @@ fn make_request(headers: &mut http::HeaderMap) {
 }
 ```
 
-## Custom Layer Composition
-
-For advanced use cases, compose tracing layers directly:
-
-```rust
-use telemetry_batteries::tracing::layers::{datadog::datadog_layer, stdout_layer};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-fn main() {
-    tracing_subscriber::registry()
-        .with(stdout_layer())
-        .with(datadog_layer("my-service", "http://localhost:8126", true))
-        .init();
-}
-```
-
 ## Cargo Features
 
 | Feature | Default | Description |
@@ -146,14 +139,15 @@ fn main() {
 See the [examples](telemetry-batteries/examples) directory:
 
 - `basic.rs` - Minimal setup with environment variables
-- `datadog.rs` - Datadog tracing with StatsD metrics
-- `prometheus.rs` - Prometheus metrics endpoint
-- `custom_tracing.rs` - Custom layer composition
 
-Run an example:
+Run the example:
 
 ```bash
-RUST_LOG=info cargo run -p telemetry-batteries --example basic
+# Local development (default)
+cargo run -p telemetry-batteries --example basic
+
+# With Datadog
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run -p telemetry-batteries --example basic
 ```
 
 ## License
