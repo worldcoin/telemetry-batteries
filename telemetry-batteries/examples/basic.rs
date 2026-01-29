@@ -33,22 +33,7 @@ pub async fn main() -> eyre::Result<()> {
     let _guard = telemetry_batteries::init()?;
 
     tracing::info!("Hello from telemetry-batteries!");
-    tracing::warn!(answer = 42, "The answer is {}", 42);
 
-    tracing::info!("Press Ctrl+C to exit...");
-
-    tokio::select! {
-        _ = inner() => {}
-        _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Shutting down");
-        }
-    }
-
-    Ok(())
-}
-
-#[tracing::instrument]
-async fn inner() {
     loop {
         metrics::counter!("example.count").increment(1);
         contained_span().await;
