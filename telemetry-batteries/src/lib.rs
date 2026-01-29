@@ -5,7 +5,7 @@
 //! # Quick Start
 //!
 //! ```ignore
-//! fn main() -> Result<(), telemetry_batteries::InitError> {
+//! fn main() -> eyre::Result<()> {
 //!     let _guard = telemetry_batteries::init()?;
 //!
 //!     tracing::info!("Hello, telemetry!");
@@ -60,7 +60,6 @@
 //! ```
 //!
 pub mod config;
-pub mod error;
 pub mod eyre;
 mod guard;
 #[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
@@ -71,7 +70,6 @@ pub use config::{
     EyreConfig, EyreMode, LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig,
     PrometheusMode, StatsdConfig, TelemetryConfig, TelemetryPreset,
 };
-pub use error::InitError;
 pub use guard::TelemetryGuard;
 
 /// Reexports of crates that appear in the public API.
@@ -104,7 +102,7 @@ pub mod reexports {
 /// # Example
 ///
 /// ```ignore
-/// fn main() -> Result<(), telemetry_batteries::InitError> {
+/// fn main() -> eyre::Result<()> {
 ///     let _guard = telemetry_batteries::init()?;
 ///
 ///     tracing::info!("Hello, telemetry!");
@@ -112,7 +110,7 @@ pub mod reexports {
 ///     Ok(())
 /// }
 /// ```
-pub fn init() -> Result<TelemetryGuard, InitError> {
+pub fn init() -> ::eyre::Result<TelemetryGuard> {
     let config = TelemetryConfig::from_env()?;
     init_with_config(config)
 }
@@ -131,7 +129,9 @@ pub fn init() -> Result<TelemetryGuard, InitError> {
 /// - Required configuration is missing (e.g., `service_name` for Datadog/Otel)
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
-pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitError> {
+pub fn init_with_config(config: TelemetryConfig) -> ::eyre::Result<TelemetryGuard> {
+    use ::eyre::bail;
+
     // Initialize eyre error reporting first
     eyre::init(&config.eyre)?;
 
@@ -147,7 +147,7 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
             let service_name = config
                 .service_name
                 .as_deref()
-                .ok_or(InitError::MissingConfig("TELEMETRY_SERVICE_NAME (required for Datadog preset)"))?;
+                .ok_or_else(|| ::eyre::eyre!("TELEMETRY_SERVICE_NAME is required for Datadog preset"))?;
 
             Some(tracing::datadog::init(
                 config.datadog_endpoint.as_deref(),
@@ -157,9 +157,7 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
             ))
         }
         TelemetryPreset::Otel => {
-            return Err(InitError::FeatureNotCompiled(
-                "otel preset is not yet implemented",
-            ));
+            bail!("otel preset is not yet implemented");
         }
         TelemetryPreset::None => None,
     };
@@ -170,7 +168,7 @@ pub fn init_with_config(config: TelemetryConfig) -> Result<TelemetryGuard, InitE
     Ok(TelemetryGuard::new(tracing_handle))
 }
 
-fn init_metrics(config: &MetricsConfig) -> Result<(), InitError> {
+fn init_metrics(config: &MetricsConfig) -> ::eyre::Result<()> {
     match config.backend {
         MetricsBackend::Prometheus => {
             #[cfg(feature = "metrics-prometheus")]
@@ -179,7 +177,7 @@ fn init_metrics(config: &MetricsConfig) -> Result<(), InitError> {
             }
             #[cfg(not(feature = "metrics-prometheus"))]
             {
-                return Err(InitError::FeatureNotCompiled("metrics-prometheus"));
+                ::eyre::bail!("metrics-prometheus feature not compiled in");
             }
         }
         MetricsBackend::Statsd => {
@@ -189,7 +187,7 @@ fn init_metrics(config: &MetricsConfig) -> Result<(), InitError> {
             }
             #[cfg(not(feature = "metrics-statsd"))]
             {
-                return Err(InitError::FeatureNotCompiled("metrics-statsd"));
+                ::eyre::bail!("metrics-statsd feature not compiled in");
             }
         }
         MetricsBackend::None => {

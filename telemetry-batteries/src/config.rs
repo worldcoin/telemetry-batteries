@@ -3,8 +3,7 @@
 use std::{env, net::SocketAddr, time::Duration};
 
 use bon::Builder;
-
-use crate::error::InitError;
+use eyre::{bail, eyre};
 
 /// Telemetry preset for common configurations.
 ///
@@ -24,18 +23,15 @@ pub enum TelemetryPreset {
 }
 
 impl TelemetryPreset {
-    fn from_str(s: &str) -> Result<Self, InitError> {
+    fn from_str(s: &str) -> eyre::Result<Self> {
         match s.to_lowercase().as_str() {
             "local" => Ok(Self::Local),
             "datadog" => Ok(Self::Datadog),
             "otel" | "otlp" | "opentelemetry" => Ok(Self::Otel),
             "none" => Ok(Self::None),
-            _ => Err(InitError::InvalidConfig {
-                field: "TELEMETRY_PRESET",
-                message: format!(
-                    "expected 'local', 'datadog', 'otel', or 'none', got '{s}'"
-                ),
-            }),
+            _ => bail!(
+                "invalid TELEMETRY_PRESET: expected 'local', 'datadog', 'otel', or 'none', got '{s}'"
+            ),
         }
     }
 }
@@ -55,18 +51,15 @@ pub enum LogFormat {
 }
 
 impl LogFormat {
-    fn from_str(s: &str) -> Result<Self, InitError> {
+    fn from_str(s: &str) -> eyre::Result<Self> {
         match s.to_lowercase().as_str() {
             "pretty" => Ok(Self::Pretty),
             "json" => Ok(Self::Json),
             "compact" => Ok(Self::Compact),
             "datadog" | "datadog_json" | "datadogjson" => Ok(Self::DatadogJson),
-            _ => Err(InitError::InvalidConfig {
-                field: "TELEMETRY_LOG_FORMAT",
-                message: format!(
-                    "expected 'pretty', 'json', 'compact', or 'datadog_json', got '{s}'"
-                ),
-            }),
+            _ => bail!(
+                "invalid TELEMETRY_LOG_FORMAT: expected 'pretty', 'json', 'compact', or 'datadog_json', got '{s}'"
+            ),
         }
     }
 }
@@ -84,15 +77,14 @@ pub enum MetricsBackend {
 }
 
 impl MetricsBackend {
-    fn from_str(s: &str) -> Result<Self, InitError> {
+    fn from_str(s: &str) -> eyre::Result<Self> {
         match s.to_lowercase().as_str() {
             "prometheus" => Ok(Self::Prometheus),
             "statsd" => Ok(Self::Statsd),
             "none" => Ok(Self::None),
-            _ => Err(InitError::InvalidConfig {
-                field: "TELEMETRY_METRICS_BACKEND",
-                message: format!("expected 'prometheus', 'statsd', or 'none', got '{s}'"),
-            }),
+            _ => bail!(
+                "invalid TELEMETRY_METRICS_BACKEND: expected 'prometheus', 'statsd', or 'none', got '{s}'"
+            ),
         }
     }
 }
@@ -108,14 +100,13 @@ pub enum PrometheusMode {
 }
 
 impl PrometheusMode {
-    fn from_str(s: &str) -> Result<Self, InitError> {
+    fn from_str(s: &str) -> eyre::Result<Self> {
         match s.to_lowercase().as_str() {
             "http" => Ok(Self::Http),
             "push" => Ok(Self::Push),
-            _ => Err(InitError::InvalidConfig {
-                field: "TELEMETRY_PROMETHEUS_MODE",
-                message: format!("expected 'http' or 'push', got '{s}'"),
-            }),
+            _ => bail!(
+                "invalid TELEMETRY_PROMETHEUS_MODE: expected 'http' or 'push', got '{s}'"
+            ),
         }
     }
 }
@@ -131,14 +122,13 @@ pub enum EyreMode {
 }
 
 impl EyreMode {
-    fn from_str(s: &str) -> Result<Self, InitError> {
+    fn from_str(s: &str) -> eyre::Result<Self> {
         match s.to_lowercase().as_str() {
             "color" => Ok(Self::Color),
             "json" => Ok(Self::Json),
-            _ => Err(InitError::InvalidConfig {
-                field: "TELEMETRY_EYRE_MODE",
-                message: format!("expected 'color' or 'json', got '{s}'"),
-            }),
+            _ => bail!(
+                "invalid TELEMETRY_EYRE_MODE: expected 'color' or 'json', got '{s}'"
+            ),
         }
     }
 }
@@ -322,7 +312,7 @@ impl TelemetryConfig {
     /// | `TELEMETRY_STATSD_HOST` | string | `localhost` |
     /// | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
     /// | `TELEMETRY_STATSD_PREFIX` | string | - |
-    pub fn from_env() -> Result<Self, InitError> {
+    pub fn from_env() -> eyre::Result<Self> {
         let service_name = env::var("TELEMETRY_SERVICE_NAME").ok();
 
         let preset = env::var("TELEMETRY_PRESET")
@@ -349,10 +339,8 @@ impl TelemetryConfig {
             listen: env::var("TELEMETRY_PROMETHEUS_LISTEN")
                 .ok()
                 .map(|s| {
-                    s.parse().map_err(|_| InitError::InvalidConfig {
-                        field: "TELEMETRY_PROMETHEUS_LISTEN",
-                        message: format!("invalid socket address: {s}"),
-                    })
+                    s.parse()
+                        .map_err(|_| eyre!("invalid TELEMETRY_PROMETHEUS_LISTEN: {s}"))
                 })
                 .transpose()?
                 .unwrap_or_else(default_prometheus_listen),
@@ -362,9 +350,8 @@ impl TelemetryConfig {
                 .map(|s| {
                     s.parse::<u64>()
                         .map(Duration::from_secs)
-                        .map_err(|_| InitError::InvalidConfig {
-                            field: "TELEMETRY_PROMETHEUS_INTERVAL",
-                            message: format!("expected integer seconds, got '{s}'"),
+                        .map_err(|_| {
+                            eyre!("invalid TELEMETRY_PROMETHEUS_INTERVAL: expected integer seconds, got '{s}'")
                         })
                 })
                 .transpose()?
@@ -376,10 +363,8 @@ impl TelemetryConfig {
             port: env::var("TELEMETRY_STATSD_PORT")
                 .ok()
                 .map(|s| {
-                    s.parse().map_err(|_| InitError::InvalidConfig {
-                        field: "TELEMETRY_STATSD_PORT",
-                        message: format!("expected u16 port number, got '{s}'"),
-                    })
+                    s.parse()
+                        .map_err(|_| eyre!("invalid TELEMETRY_STATSD_PORT: expected u16, got '{s}'"))
                 })
                 .transpose()?
                 .unwrap_or(8125),
