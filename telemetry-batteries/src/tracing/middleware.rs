@@ -3,18 +3,23 @@
 //! Provides a [`TraceLayer`] that automatically extracts trace context from
 //! incoming request headers and injects it into outgoing response headers.
 
+use std::future::Future;
+use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use http::{Request, Response};
 use tower::{Layer, Service};
+use tracing::{info_span, Instrument};
 
 use super::{trace_from_headers, trace_to_headers};
 
 /// Tower layer that propagates distributed trace context.
 ///
 /// When applied to a service, this layer will:
-/// 1. Extract trace context from incoming request headers (e.g., `traceparent`)
-/// 2. Inject trace context into outgoing response headers
+/// 1. Create a request span
+/// 2. Extract trace context from incoming request headers (e.g., `traceparent`)
+/// 3. Run the inner service within the span
+/// 4. Inject trace context into outgoing response headers
 ///
 /// # Example
 ///
@@ -45,50 +50,50 @@ pub struct TraceService<S> {
 
 impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for TraceService<S>
 where
-    S: Service<Request<ReqBody>, Response = Response<ResBody>>,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>> + Clone + Send + 'static,
+    S::Future: Send,
+    ReqBody: Send + 'static,
+    ResBody: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = TraceFuture<S::Future>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
-        // Extract trace context from incoming request headers
-        trace_from_headers(request.headers());
+        let inner = self.inner.clone();
+        let inner = std::mem::replace(&mut self.inner, inner);
 
-        TraceFuture {
-            inner: self.inner.call(request),
-        }
-    }
-}
+        Box::pin(async move {
+            let method = request.method().clone();
+            let uri = request.uri().clone();
+            let path = uri.path().to_string();
+            let query = uri.query().map(ToString::to_string);
 
-/// Future that injects trace context into the response.
-#[pin_project::pin_project]
-pub struct TraceFuture<F> {
-    #[pin]
-    inner: F,
-}
+            let span = info_span!(
+                "request",
+                http.method = %method,
+                http.path = %path,
+                http.query = ?query,
+            );
 
-impl<F, ResBody, E> std::future::Future for TraceFuture<F>
-where
-    F: std::future::Future<Output = Result<Response<ResBody>, E>>,
-{
-    type Output = Result<Response<ResBody>, E>;
+            async move {
+                // Extract trace context from incoming headers and attach to current span
+                trace_from_headers(request.headers());
 
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
+                let mut inner = inner;
+                let mut response = inner.call(request).await?;
 
-        match this.inner.poll(cx) {
-            Poll::Ready(Ok(mut response)) => {
                 // Inject trace context into response headers
                 trace_to_headers(response.headers_mut());
-                Poll::Ready(Ok(response))
+
+                Ok(response)
             }
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-            Poll::Pending => Poll::Pending,
-        }
+            .instrument(span)
+            .await
+        })
     }
 }
