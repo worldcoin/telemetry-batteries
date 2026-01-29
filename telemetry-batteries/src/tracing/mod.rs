@@ -4,8 +4,8 @@ pub mod layers;
 pub mod middleware;
 pub(crate) mod stdout;
 
-use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
 use opentelemetry::Context;
+use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
 pub(crate) use opentelemetry_sdk::trace::SdkTracerProvider;
 
 use std::path::PathBuf;
@@ -13,9 +13,9 @@ use std::{fs, io};
 use tracing::Subscriber;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;
+pub use tracing_subscriber::Registry;
 use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
-pub use tracing_subscriber::Registry;
 
 /// Handle that shuts down the tracing provider when dropped.
 #[must_use]
@@ -37,10 +37,10 @@ impl TracingShutdownHandle {
 
 impl Drop for TracingShutdownHandle {
     fn drop(&mut self) {
-        if let Some(provider) = self.provider.take() {
-            if let Err(e) = provider.shutdown() {
-                tracing::warn!("Failed to shutdown tracer provider: {e}");
-            }
+        if let Some(provider) = self.provider.take()
+            && let Err(e) = provider.shutdown()
+        {
+            tracing::warn!("Failed to shutdown tracer provider: {e}");
         }
     }
 }
@@ -125,9 +125,7 @@ where
     S: Subscriber + for<'lookup> LookupSpan<'lookup>,
     N: for<'writer> FormatFields<'writer> + 'static,
 {
-    let span = ctx.lookup_current().or_else(|| ctx.parent_span());
-
-    span
+    ctx.lookup_current().or_else(|| ctx.parent_span())
 }
 
 pub struct WriteAdapter<'a> {

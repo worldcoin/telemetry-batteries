@@ -5,7 +5,7 @@ use crate::tracing::layers::datadog::datadog_layer;
 use opentelemetry_datadog::DatadogPropagator;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
-    layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+    EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 use super::TracingShutdownHandle;

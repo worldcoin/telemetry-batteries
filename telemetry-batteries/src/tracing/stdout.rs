@@ -4,7 +4,7 @@ use crate::config::LogFormat;
 use crate::tracing::TracingShutdownHandle;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+    EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 /// Initialize stdout tracing with the specified format and log level.

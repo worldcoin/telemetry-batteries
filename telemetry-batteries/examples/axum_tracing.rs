@@ -20,7 +20,7 @@
 //!      http://localhost:3000/
 //! ```
 
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use telemetry_batteries::tracing::middleware::TraceLayer;
 
 #[tokio::main]

@@ -1,5 +1,5 @@
 use tracing::Subscriber;
-use tracing_subscriber::{registry::LookupSpan, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, registry::LookupSpan};
 
 pub fn stdout_layer<S>() -> impl Layer<S>
 where

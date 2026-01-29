@@ -9,7 +9,7 @@ use std::task::{Context, Poll};
 
 use http::{Request, Response};
 use tower::{Layer, Service};
-use tracing::{info_span, Instrument, Span};
+use tracing::{Instrument, Span, info_span};
 
 use super::{trace_from_headers, trace_to_headers};
 

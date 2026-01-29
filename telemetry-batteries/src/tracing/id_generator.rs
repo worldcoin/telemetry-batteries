@@ -2,7 +2,8 @@ use std::cell::RefCell;
 
 use opentelemetry::trace::{SpanId, TraceId};
 use opentelemetry_sdk::trace::IdGenerator;
-use rand::{rngs, Rng};
+use rand::prelude::*;
+use rand::rngs;
 
 /// Reduced Id Generator
 ///
@@ -14,14 +15,14 @@ pub struct ReducedIdGenerator;
 impl IdGenerator for ReducedIdGenerator {
     fn new_trace_id(&self) -> TraceId {
         CURRENT_RNG.with(|rng| {
-            let trace_id = rng.borrow_mut().gen::<u64>();
+            let trace_id = rng.borrow_mut().random::<u64>();
 
             TraceId::from(trace_id as u128)
         })
     }
 
     fn new_span_id(&self) -> SpanId {
-        CURRENT_RNG.with(|rng| SpanId::from(rng.borrow_mut().gen::<u64>()))
+        CURRENT_RNG.with(|rng| SpanId::from(rng.borrow_mut().random::<u64>()))
     }
 }
 

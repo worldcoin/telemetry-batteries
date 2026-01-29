@@ -4,19 +4,19 @@ use chrono::Utc;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
 use opentelemetry_sdk::trace::{Config, Sampler, SdkTracerProvider};
-use serde::ser::SerializeMap;
 use serde::Serializer;
+use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::{fmt, Layer};
+use tracing_subscriber::{Layer, fmt};
 
 use crate::config::LogFormat;
 use crate::tracing::id_generator::ReducedIdGenerator;
 use crate::tracing::{
-    opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
+    WriteAdapter, opentelemetry_span_id, opentelemetry_trace_id,
 };
 
 pub fn datadog_layer<S>(
