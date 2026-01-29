@@ -105,7 +105,7 @@ TELEMETRY_METRICS_BACKEND=prometheus cargo run
 
 ## Distributed Tracing
 
-For distributed tracing, use the `TraceLayer` middleware with axum or any Tower-compatible framework:
+For distributed tracing with axum or any Tower-compatible framework, use `TraceLayer`:
 
 ```rust
 use axum::{routing::get, Router};
@@ -117,25 +117,23 @@ let app = Router::new()
 ```
 
 The middleware automatically:
-- Extracts trace context from incoming request headers (e.g., `traceparent`)
-- Injects trace context into outgoing response headers
+- Creates a span for each request
+- Extracts trace context from incoming headers (e.g., `traceparent`)
+- Injects trace context into response headers
 
-For manual control, use the lower-level functions:
+Custom span creation:
 
 ```rust
-use telemetry_batteries::tracing::{trace_from_headers, trace_to_headers};
+use telemetry_batteries::tracing::middleware::TraceLayer;
+use tracing::info_span;
 
-// Extract trace context from incoming request
-fn handle_request(headers: &http::HeaderMap) {
-    trace_from_headers(headers);
-    // ... handle request within the trace context
-}
-
-// Inject trace context into outgoing request
-fn make_request(headers: &mut http::HeaderMap) {
-    trace_to_headers(headers);
-    // ... send request with trace headers
-}
+let layer = TraceLayer::new().with_make_span(|req| {
+    info_span!(
+        "http_request",
+        method = %req.method(),
+        path = %req.uri().path(),
+    )
+});
 ```
 
 ## Cargo Features
