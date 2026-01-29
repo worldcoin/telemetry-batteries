@@ -11,7 +11,10 @@ use tracing_subscriber::{
 ///
 /// Note: For `DatadogJson` format without Datadog span export, this falls back to
 /// standard JSON format since trace correlation requires the OpenTelemetry layer.
-pub(crate) fn init(format: LogFormat, log_level: &str) -> TracingShutdownHandle {
+pub(crate) fn init(
+    format: LogFormat,
+    log_level: &str,
+) -> TracingShutdownHandle {
     let filter = EnvFilter::new(log_level);
 
     match format {

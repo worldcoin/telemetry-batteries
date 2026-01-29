@@ -8,8 +8,9 @@ mod metrics;
 pub mod tracing;
 
 pub use config::{
-    EyreConfig, EyreMode, LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig,
-    PrometheusMode, StatsdConfig, TelemetryConfig, TelemetryPreset,
+    EyreConfig, EyreMode, LogFormat, MetricsBackend, MetricsConfig,
+    PrometheusConfig, PrometheusMode, StatsdConfig, TelemetryConfig,
+    TelemetryPreset,
 };
 pub use guard::TelemetryGuard;
 
@@ -19,7 +20,10 @@ pub use guard::TelemetryGuard;
 /// errors where types have the same name but actually are distinct types from different
 /// crate versions.
 pub mod reexports {
-    #[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
+    #[cfg(any(
+        feature = "metrics-prometheus",
+        feature = "metrics-statsd"
+    ))]
     pub use ::metrics;
     pub use ::opentelemetry;
 }
@@ -70,7 +74,9 @@ pub fn init() -> ::eyre::Result<TelemetryGuard> {
 /// - Required configuration is missing (e.g., `service_name` for Datadog/Otel)
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
-pub fn init_with_config(config: TelemetryConfig) -> ::eyre::Result<TelemetryGuard> {
+pub fn init_with_config(
+    config: TelemetryConfig,
+) -> ::eyre::Result<TelemetryGuard> {
     use ::eyre::bail;
 
     // Initialize eyre error reporting first
@@ -85,10 +91,12 @@ pub fn init_with_config(config: TelemetryConfig) -> ::eyre::Result<TelemetryGuar
             Some(tracing::stdout::init(log_format, &log_level))
         }
         TelemetryPreset::Datadog => {
-            let service_name = config
-                .service_name
-                .as_deref()
-                .ok_or_else(|| ::eyre::eyre!("TELEMETRY_SERVICE_NAME is required for Datadog preset"))?;
+            let service_name =
+                config.service_name.as_deref().ok_or_else(|| {
+                    ::eyre::eyre!(
+                        "TELEMETRY_SERVICE_NAME is required for Datadog preset"
+                    )
+                })?;
 
             Some(tracing::datadog::init(
                 config.datadog_endpoint.as_deref(),

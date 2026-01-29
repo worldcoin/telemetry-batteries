@@ -33,7 +33,9 @@ pub(crate) fn init(config: &PrometheusConfig) -> Result<(), BuildError> {
 /// Legacy exporter config enum (kept for reference during migration).
 #[allow(dead_code)]
 pub(crate) enum PrometheusExporterConfig {
-    HttpListener { listen_address: SocketAddr },
+    HttpListener {
+        listen_address: SocketAddr,
+    },
     PushGateway {
         endpoint: String,
         interval: Duration,

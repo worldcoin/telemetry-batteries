@@ -15,7 +15,9 @@ use tracing_subscriber::{fmt, Layer};
 
 use crate::config::LogFormat;
 use crate::tracing::id_generator::ReducedIdGenerator;
-use crate::tracing::{opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter};
+use crate::tracing::{
+    opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
+};
 
 pub fn datadog_layer<S>(
     service_name: &str,
@@ -61,34 +63,30 @@ where
 ///
 /// If `log_format` is `DatadogJson`, uses the custom Datadog JSON format with trace correlation.
 /// Otherwise, uses the standard tracing-subscriber formats.
-pub fn datadog_format_layer<S>(log_format: LogFormat) -> Box<dyn Layer<S> + Send + Sync>
+pub fn datadog_format_layer<S>(
+    log_format: LogFormat,
+) -> Box<dyn Layer<S> + Send + Sync>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     match log_format {
-        LogFormat::DatadogJson => Box::new(
-            fmt::Layer::new()
-                .json()
-                .event_format(DatadogFormat)
-        ),
+        LogFormat::DatadogJson => {
+            Box::new(fmt::Layer::new().json().event_format(DatadogFormat))
+        }
         LogFormat::Pretty => Box::new(
             fmt::Layer::new()
                 .with_writer(std::io::stdout)
                 .pretty()
                 .with_target(false)
                 .with_line_number(true)
-                .with_file(true)
+                .with_file(true),
         ),
-        LogFormat::Json => Box::new(
-            fmt::Layer::new()
-                .with_writer(std::io::stdout)
-                .json()
-        ),
-        LogFormat::Compact => Box::new(
-            fmt::Layer::new()
-                .with_writer(std::io::stdout)
-                .compact()
-        ),
+        LogFormat::Json => {
+            Box::new(fmt::Layer::new().with_writer(std::io::stdout).json())
+        }
+        LogFormat::Compact => {
+            Box::new(fmt::Layer::new().with_writer(std::io::stdout).compact())
+        }
     }
 }
 
@@ -124,7 +122,8 @@ where
                 serde_json::Serializer::new(WriteAdapter::new(&mut writer));
             let mut serializer = serializer.serialize_map(None)?;
 
-            serializer.serialize_entry("timestamp", &Utc::now().to_rfc3339())?;
+            serializer
+                .serialize_entry("timestamp", &Utc::now().to_rfc3339())?;
             serializer.serialize_entry("level", &meta.level().as_serde())?;
             serializer.serialize_entry("target", meta.target())?;
 

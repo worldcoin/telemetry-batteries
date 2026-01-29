@@ -266,7 +266,7 @@ pub struct TelemetryConfig {
 impl TelemetryConfig {
     /// Get the effective log format based on preset and override.
     pub fn effective_log_format(&self) -> LogFormat {
-        self.log_format.unwrap_or_else(|| match self.preset {
+        self.log_format.unwrap_or(match self.preset {
             TelemetryPreset::Local => LogFormat::Pretty,
             TelemetryPreset::Datadog => LogFormat::DatadogJson,
             TelemetryPreset::Otel => LogFormat::Json,

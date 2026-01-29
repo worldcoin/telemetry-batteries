@@ -25,7 +25,8 @@ pub(crate) fn init(
 
     let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
-    let (dd_layer, provider) = datadog_layer(service_name, endpoint, log_format);
+    let (dd_layer, provider) =
+        datadog_layer(service_name, endpoint, log_format);
     let layers = EnvFilter::new(log_level).and_then(dd_layer);
     tracing_subscriber::registry()
         .with(layers)
@@ -46,7 +47,8 @@ mod tests {
     async fn test_init() {
         env::set_var("RUST_LOG", "info");
         let service_name = "test_service";
-        let _shutdown_handle = init(None, service_name, LogFormat::DatadogJson, "info");
+        let _shutdown_handle =
+            init(None, service_name, LogFormat::DatadogJson, "info");
 
         for _ in 0..10 {
             tracing::info!("test");
