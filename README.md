@@ -107,7 +107,7 @@ TELEMETRY_METRICS_BACKEND=prometheus cargo run
 
 For distributed tracing with axum or any Tower-compatible framework, use `TraceLayer`:
 
-```rust
+```rust,ignore
 use axum::{routing::get, Router};
 use telemetry_batteries::tracing::middleware::TraceLayer;
 
