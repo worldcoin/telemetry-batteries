@@ -50,6 +50,7 @@ pub async fn main() -> eyre::Result<()> {
 #[tracing::instrument]
 async fn inner() {
     loop {
+        metrics::counter!("example.count").increment(1);
         contained_span().await;
 
         tokio::time::sleep(Duration::from_secs(1)).await;
