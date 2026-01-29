@@ -35,24 +35,3 @@ pub(crate) fn init(
 
     TracingShutdownHandle::new(provider)
 }
-
-#[cfg(test)]
-mod tests {
-    use std::env;
-
-    use super::*;
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_init() {
-        env::set_var("RUST_LOG", "info");
-        let service_name = "test_service";
-        let _shutdown_handle =
-            init(None, service_name, LogFormat::DatadogJson, "info");
-
-        for _ in 0..10 {
-            tracing::info!("test");
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        }
-    }
-}
