@@ -27,19 +27,17 @@ Configuration is done via environment variables using **presets**:
 |--------|------------|------------|-------------|----------|
 | `local` | pretty | stdout | none | Local development |
 | `datadog` | datadog_json | stdout | Datadog Agent | Production with Datadog |
-| `otel` | json | stdout | OTLP | Production with OTel collector (not yet implemented) |
 | `none` | - | none | none | Disable telemetry |
 
 ### Environment Variables
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `TELEMETRY_PRESET` | `local`, `datadog`, `otel`, `none` | `local` |
-| `TELEMETRY_SERVICE_NAME` | string | required for datadog/otel |
+| `TELEMETRY_PRESET` | `local`, `datadog`, `none` | `local` |
+| `TELEMETRY_SERVICE_NAME` | string | required for datadog |
 | `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
 | `TELEMETRY_LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | (from preset) |
 | `TELEMETRY_DATADOG_ENDPOINT` | url | `http://localhost:8126` |
-| `TELEMETRY_OTLP_ENDPOINT` | url | `http://localhost:4317` |
 | `TELEMETRY_EYRE_MODE` | `color`, `json` | `color` |
 
 ### Metrics Configuration
