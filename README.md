@@ -113,7 +113,7 @@ use telemetry_batteries::tracing::middleware::TraceLayer;
 
 let app = Router::new()
     .route("/", get(handler))
-    .layer(TraceLayer);
+    .layer(TraceLayer::new());
 ```
 
 The middleware automatically:

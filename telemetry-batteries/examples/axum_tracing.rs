@@ -30,7 +30,7 @@ async fn main() -> eyre::Result<()> {
     let app = Router::new()
         .route("/", get(root))
         .route("/hello/{name}", get(hello))
-        .layer(TraceLayer);
+        .layer(TraceLayer::new());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     tracing::info!("Listening on http://0.0.0.0:3000");
