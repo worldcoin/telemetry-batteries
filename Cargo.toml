@@ -8,11 +8,9 @@ readme = "README.md"
 repository = "https://github.com/worldcoin/telemetry-batteries"
 
 [features]
-default = ["metrics-prometheus", "metrics-statsd", "rustls"]
+default = ["metrics-prometheus", "metrics-statsd"]
 metrics-statsd = ["dep:metrics-exporter-statsd"]
 metrics-prometheus = ["dep:metrics-exporter-prometheus"]
-rustls = ["reqwest/rustls-tls"]
-native-tls = ["reqwest/native-tls"]
 
 [dependencies]
 backtrace = "0.3"
@@ -28,7 +26,10 @@ metrics-exporter-prometheus = { version = "0.18", optional = true }
 opentelemetry = "0.31"
 opentelemetry-datadog = { version = "0.19", features = ["reqwest-client"] }
 opentelemetry-http = "0.31"
-opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
+opentelemetry_sdk = { version = "0.31", features = [
+  "rt-tokio",
+  "experimental_trace_batch_span_processor_with_async_runtime",
+] }
 pin-project = "1"
 reqwest = { version = "0.12", default-features = false }
 serde = { version = "1", features = ["derive"] }

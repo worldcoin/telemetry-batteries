@@ -3,7 +3,9 @@ use std::time::Duration;
 use chrono::Utc;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
-use opentelemetry_sdk::trace::{Config, Sampler, SdkTracerProvider};
+use opentelemetry_sdk::runtime::Tokio;
+use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
+use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
@@ -27,10 +29,6 @@ pub fn datadog_layer<S>(
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    let mut tracer_config = Config::default();
-    tracer_config.sampler = Box::new(Sampler::AlwaysOn);
-    tracer_config.id_generator = Box::new(ReducedIdGenerator);
-
     // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
     // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved
     // seems to prevent client reuse and avoid the errors in question
@@ -39,14 +37,24 @@ where
         .build()
         .expect("Could not init datadog http_client");
 
-    let provider = opentelemetry_datadog::new_pipeline()
+    // Build the exporter manually so we can use a tokio-based BatchSpanProcessor.
+    // The default install_batch() spawns a thread without tokio runtime, which causes
+    // reqwest to panic when doing DNS resolution.
+    let exporter = opentelemetry_datadog::new_pipeline()
         .with_http_client(dd_http_client)
         .with_agent_endpoint(endpoint)
-        .with_trace_config(tracer_config)
         .with_service_name(service_name)
         .with_api_version(ApiVersion::Version05)
-        .install_batch()
-        .expect("failed to install OpenTelemetry datadog tracer, perhaps check which async runtime is being used");
+        .build_exporter()
+        .expect("failed to build OpenTelemetry datadog exporter");
+
+    let batch_processor = BatchSpanProcessor::builder(exporter, Tokio).build();
+
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(batch_processor)
+        .with_sampler(Sampler::AlwaysOn)
+        .with_id_generator(ReducedIdGenerator)
+        .build();
 
     // Set as global tracer provider
     opentelemetry::global::set_tracer_provider(provider.clone());
