@@ -1,50 +1,46 @@
+//! Prometheus metrics initialization.
+
 use metrics_exporter_prometheus::{BuildError, PrometheusBuilder};
-use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, time::Duration};
 
-pub struct PrometheusBattery;
+use crate::config::{PrometheusConfig, PrometheusMode};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum PrometheusExporterConfig {
-    // Run an HTTP listener on the given `listen_address`.
+/// Initialize Prometheus metrics with the given configuration.
+pub(crate) fn init(config: &PrometheusConfig) -> Result<(), BuildError> {
+    let mut builder = PrometheusBuilder::new();
+
+    builder = match config.mode {
+        PrometheusMode::Http => builder.with_http_listener(config.listen),
+        PrometheusMode::Push => {
+            if let Some(ref endpoint) = config.endpoint {
+                builder.with_push_gateway(
+                    endpoint,
+                    config.interval,
+                    None::<String>,
+                    None::<String>,
+                    false, // use_http_post_method - use PUT by default per prometheus spec
+                )?
+            } else {
+                // If no endpoint is provided for push mode, fall back to http
+                builder.with_http_listener(config.listen)
+            }
+        }
+    };
+
+    builder.install()
+}
+
+/// Legacy exporter config enum (kept for reference during migration).
+#[allow(dead_code)]
+pub(crate) enum PrometheusExporterConfig {
     HttpListener {
         listen_address: SocketAddr,
     },
-
-    // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
-    // infinitely.
     PushGateway {
         endpoint: String,
         interval: Duration,
         username: Option<String>,
         password: Option<String>,
     },
-
-    #[allow(dead_code)]
     Unconfigured,
-}
-
-impl PrometheusBattery {
-    pub fn init(
-        exporter_config: Option<PrometheusExporterConfig>,
-    ) -> Result<(), BuildError> {
-        let mut builder = PrometheusBuilder::new();
-
-        builder = match exporter_config {
-            Some(PrometheusExporterConfig::HttpListener { listen_address }) => {
-                builder.with_http_listener(listen_address)
-            }
-            Some(PrometheusExporterConfig::PushGateway {
-                endpoint,
-                interval,
-                username,
-                password,
-            }) => builder
-                .with_push_gateway(endpoint, interval, username, password)?,
-            _ => builder,
-        };
-
-        builder.install()
-    }
 }

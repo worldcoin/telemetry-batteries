@@ -1,33 +1,35 @@
 use std::time::Duration;
 
 use chrono::Utc;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
-use opentelemetry_sdk::trace::{Config, Sampler};
-use serde::ser::SerializeMap;
+use opentelemetry_sdk::trace::{Config, Sampler, SdkTracerProvider};
 use serde::Serializer;
+use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::{fmt, Layer};
+use tracing_subscriber::{Layer, fmt};
 
+use crate::config::LogFormat;
 use crate::tracing::id_generator::ReducedIdGenerator;
 use crate::tracing::{
-    opentelemetry_span_id, opentelemetry_trace_id, WriteAdapter,
+    WriteAdapter, opentelemetry_span_id, opentelemetry_trace_id,
 };
 
 pub fn datadog_layer<S>(
     service_name: &str,
     endpoint: &str,
-    location: bool,
-) -> impl Layer<S>
+    log_format: LogFormat,
+) -> (impl Layer<S>, SdkTracerProvider)
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    let tracer_config = Config::default()
-        .with_id_generator(ReducedIdGenerator)
-        .with_sampler(Sampler::AlwaysOn);
+    let mut tracer_config = Config::default();
+    tracer_config.sampler = Box::new(Sampler::AlwaysOn);
+    tracer_config.id_generator = Box::new(ReducedIdGenerator);
 
     // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
     // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved
@@ -37,33 +39,64 @@ where
         .build()
         .expect("Could not init datadog http_client");
 
-    let tracer = opentelemetry_datadog::new_pipeline()
+    let provider = opentelemetry_datadog::new_pipeline()
         .with_http_client(dd_http_client)
         .with_agent_endpoint(endpoint)
         .with_trace_config(tracer_config)
         .with_service_name(service_name)
         .with_api_version(ApiVersion::Version05)
-        .install_batch(opentelemetry_sdk::runtime::Tokio)
+        .install_batch()
         .expect("failed to install OpenTelemetry datadog tracer, perhaps check which async runtime is being used");
 
-    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
-    let dd_format_layer = datadog_format_layer(location);
+    // Set as global tracer provider
+    opentelemetry::global::set_tracer_provider(provider.clone());
 
-    dd_format_layer.and_then(otel_layer)
+    // Use a static string for the tracer name since provider.tracer() requires 'static
+    let tracer = provider.tracer("telemetry-batteries");
+    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
+    let format_layer = datadog_format_layer(log_format);
+
+    (format_layer.and_then(otel_layer), provider)
 }
 
-pub fn datadog_format_layer<S>(location: bool) -> impl Layer<S>
+/// Create a format layer for Datadog.
+///
+/// If `log_format` is `DatadogJson`, uses the custom Datadog JSON format with trace correlation.
+/// Otherwise, uses the standard tracing-subscriber formats.
+pub fn datadog_format_layer<S>(
+    log_format: LogFormat,
+) -> Box<dyn Layer<S> + Send + Sync>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    fmt::Layer::new()
-        .json()
-        .event_format(DatadogFormat { location })
+    match log_format {
+        LogFormat::DatadogJson => {
+            Box::new(fmt::Layer::new().json().event_format(DatadogFormat))
+        }
+        LogFormat::Pretty => Box::new(
+            fmt::Layer::new()
+                .with_writer(std::io::stdout)
+                .pretty()
+                .with_target(false)
+                .with_line_number(true)
+                .with_file(true),
+        ),
+        LogFormat::Json => {
+            Box::new(fmt::Layer::new().with_writer(std::io::stdout).json())
+        }
+        LogFormat::Compact => {
+            Box::new(fmt::Layer::new().with_writer(std::io::stdout).compact())
+        }
+    }
 }
 
-pub struct DatadogFormat {
-    location: bool,
-}
+/// Custom JSON formatter for Datadog that includes trace correlation fields.
+///
+/// Output format:
+/// ```json
+/// {"timestamp":"...","level":"INFO","target":"my_app","message":"...","dd.trace_id":"123","dd.span_id":"456"}
+/// ```
+pub struct DatadogFormat;
 
 impl<S, N> FormatEvent<S, N> for DatadogFormat
 where
@@ -93,13 +126,6 @@ where
                 .serialize_entry("timestamp", &Utc::now().to_rfc3339())?;
             serializer.serialize_entry("level", &meta.level().as_serde())?;
             serializer.serialize_entry("target", meta.target())?;
-
-            if self.location {
-                serializer.serialize_entry("line", &meta.line())?;
-                serializer.serialize_entry("file", &meta.file())?;
-                serializer
-                    .serialize_entry("module_path", &meta.module_path())?;
-            }
 
             let mut visitor = tracing_serde::SerdeMapVisitor::new(serializer);
             event.record(&mut visitor);

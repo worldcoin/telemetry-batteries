@@ -3,7 +3,7 @@ use std::io::Write;
 use tokio::sync::OnceCell;
 use tracing::Subscriber;
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{fmt, registry::LookupSpan, Layer};
+use tracing_subscriber::{Layer, fmt, registry::LookupSpan};
 
 pub mod datadog;
 pub mod stdout;

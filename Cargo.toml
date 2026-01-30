@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["telemetry-batteries", "telemetry-batteries-macros"]
+members = ["telemetry-batteries"]
 
 [workspace.package]
-version = "0.1.2"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 description = "Batteries included library to configure tracing, logs and metrics"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
 readme = "README.md"
@@ -17,26 +17,30 @@ eyre = "0.6"
 http = "1"
 metrics = "0.24"
 metrics-exporter-statsd = "0.9"
-metrics-exporter-prometheus = "0.16"
-opentelemetry = "0.26"
-opentelemetry-datadog = { version = "0.14", features = ["reqwest-client"] }
-opentelemetry-http = "0.26"
-opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+metrics-exporter-prometheus = "0.18"
+opentelemetry = "0.31"
+opentelemetry-datadog = { version = "0.19", features = ["reqwest-client"] }
+opentelemetry-http = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
 proc-macro2 = "1.0.60"
 quote = "1"
-rand = "0.8"
+rand = "0.9"
 reqwest = { version = "0.12", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 syn = { version = "2.0", features = ["full"] }
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1"
 tracing-appender = "0.2"
-tracing-opentelemetry = "0.27"
+tracing-opentelemetry = "0.32"
 tracing-serde = "0.1"
 tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 anyhow = "1.0"
+axum = "0.8"
 backtrace = "0.3"
+bon = "3"
 color-eyre = "0.6"
+pin-project = "1"
+tower = "0.5"

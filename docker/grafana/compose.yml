@@ -1,0 +1,72 @@
+services:
+  app:
+    image: rust:1.93-bookworm
+    container_name: app
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - cargo-cache:/usr/local/cargo/registry
+    environment:
+      - TELEMETRY_PRESET=datadog
+      - TELEMETRY_SERVICE_NAME=app
+      - TELEMETRY_METRICS_BACKEND=prometheus
+      - TELEMETRY_PROMETHEUS_LISTEN=0.0.0.0:9091
+      - RUST_LOG=info
+    command: cargo run --example basic --features metrics-prometheus
+    labels:
+      - "logging=alloy"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+    command: run /etc/alloy/config.alloy
+    depends_on:
+      - loki
+
+volumes:
+  grafana-data:
+  prometheus-data:
+  loki-data:
+  cargo-cache:

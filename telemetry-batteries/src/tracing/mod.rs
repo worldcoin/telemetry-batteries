@@ -1,35 +1,52 @@
-pub mod datadog;
-pub mod id_generator;
+pub(crate) mod datadog;
+pub(crate) mod id_generator;
 pub mod layers;
-pub mod stdout;
+pub mod middleware;
+pub(crate) mod stdout;
 
-use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
 use opentelemetry::Context;
+use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
+pub(crate) use opentelemetry_sdk::trace::SdkTracerProvider;
 
 use std::path::PathBuf;
 use std::{fs, io};
 use tracing::Subscriber;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;
+pub use tracing_subscriber::Registry;
 use tracing_subscriber::fmt::{FmtContext, FormatFields};
 use tracing_subscriber::registry::{LookupSpan, SpanRef};
-pub use tracing_subscriber::Registry;
 
-/// `TracingShutdownHandle` ensures the global tracing provider
-/// is gracefully shut down when the handle is dropped, preventing loss
-/// of any remaining traces not yet exported.
+/// Handle that shuts down the tracing provider when dropped.
 #[must_use]
-pub struct TracingShutdownHandle;
+pub(crate) struct TracingShutdownHandle {
+    provider: Option<SdkTracerProvider>,
+}
+
+impl TracingShutdownHandle {
+    pub fn new(provider: SdkTracerProvider) -> Self {
+        Self {
+            provider: Some(provider),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self { provider: None }
+    }
+}
 
 impl Drop for TracingShutdownHandle {
     fn drop(&mut self) {
-        tracing::warn!("Shutting down tracing provider");
-        opentelemetry::global::shutdown_tracer_provider();
+        if let Some(provider) = self.provider.take()
+            && let Err(e) = provider.shutdown()
+        {
+            tracing::warn!("Failed to shutdown tracer provider: {e}");
+        }
     }
 }
 
 pub fn trace_from_headers(headers: &http::HeaderMap) {
-    tracing::Span::current().set_parent(
+    let _ = tracing::Span::current().set_parent(
         opentelemetry::global::get_text_map_propagator(|propagator| {
             propagator.extract(&opentelemetry_http::HeaderExtractor(headers))
         }),
@@ -57,21 +74,8 @@ where
     let extensions = span_ref.extensions();
 
     let data = extensions.get::<OtelData>()?;
-    let parent_trace_id = data.parent_cx.span().span_context().trace_id();
-    let parent_trace_id_u128 = u128::from_be_bytes(parent_trace_id.to_bytes());
-
-    // So parent trace id will usually be zero UNLESS we extract a trace id from
-    // headers in which case it'll be the trace id from headers. And for some
-    // reason this logic is not handled with Option
-    //
-    // So in case the parent trace id is zero, we should use the builder trace id.
-    if parent_trace_id_u128 == 0 {
-        let builder_id = data.builder.trace_id?;
-
-        Some(u128::from_be_bytes(builder_id.to_bytes()))
-    } else {
-        Some(parent_trace_id_u128)
-    }
+    let trace_id = data.trace_id()?;
+    Some(u128::from_be_bytes(trace_id.to_bytes()))
 }
 
 /// Finds Otel span id
@@ -91,23 +95,14 @@ where
     let extensions = span_ref.extensions();
 
     let data = extensions.get::<OtelData>()?;
-    let parent_span_id = data.parent_cx.span().span_context().span_id();
-    let parent_span_id_u64 = u64::from_be_bytes(parent_span_id.to_bytes());
-
-    // Same logic as for trace ids
-    if parent_span_id_u64 == 0 {
-        let builder_id = data.builder.span_id?;
-
-        Some(u64::from_be_bytes(builder_id.to_bytes()))
-    } else {
-        Some(parent_span_id_u64)
-    }
+    let span_id = data.span_id()?;
+    Some(u64::from_be_bytes(span_id.to_bytes()))
 }
 
 /// Sets the current span's parent to the specified context
 pub fn trace_from_ctx(ctx: SpanContext) {
     let parent_ctx = Context::new().with_remote_span_context(ctx);
-    tracing::Span::current().set_parent(parent_ctx);
+    let _ = tracing::Span::current().set_parent(parent_ctx);
 }
 
 // Extracts the trace id and span id from the current span
@@ -130,9 +125,7 @@ where
     S: Subscriber + for<'lookup> LookupSpan<'lookup>,
     N: for<'writer> FormatFields<'writer> + 'static,
 {
-    let span = ctx.lookup_current().or_else(|| ctx.parent_span());
-
-    span
+    ctx.lookup_current().or_else(|| ctx.parent_span())
 }
 
 pub struct WriteAdapter<'a> {

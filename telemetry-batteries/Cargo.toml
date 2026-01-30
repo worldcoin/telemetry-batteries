@@ -17,6 +17,7 @@ native-tls = ["reqwest/native-tls"]
 
 [dependencies]
 backtrace.workspace = true
+bon.workspace = true
 chrono.workspace = true
 color-eyre.workspace = true
 dirs.workspace = true
@@ -29,11 +30,13 @@ opentelemetry.workspace = true
 opentelemetry-datadog.workspace = true
 opentelemetry-http.workspace = true
 opentelemetry_sdk.workspace = true
+pin-project.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tower.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-error.workspace = true
@@ -44,3 +47,4 @@ rand.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+axum.workspace = true

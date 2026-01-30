@@ -1,7 +1,7 @@
 //! Eyre error reporting with two modes:
 //!
-//! - **ColorEyre**: Human-readable colored multi-line output (default). Useful for local development and debugging.
-//! - **JsonEyre**: Single-line JSON output (see [`json_eyre`] for schema). Useful in production environments where logs are collected e.g., by Datadog.
+//! - **Color**: Human-readable colored multi-line output (default). Useful for local development and debugging.
+//! - **Json**: Single-line JSON output (see [`json_eyre`] for schema). Useful in production environments where logs are collected e.g., by Datadog.
 //!
 //! # Environment Variables
 //!
@@ -15,45 +15,21 @@
 
 pub mod json_eyre;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum EyreMode {
-    ColorEyre,
-    JsonEyre,
-}
+use crate::config::{EyreConfig, EyreMode};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct EyreConfig {
-    mode: EyreMode,
-    with_default_backtrace: bool,
-    with_default_spantrace: bool,
-}
-
-impl Default for EyreConfig {
-    fn default() -> Self {
-        Self {
-            mode: EyreMode::ColorEyre,
-            with_default_backtrace: true,
-            with_default_spantrace: true,
+/// Initialize eyre error reporting with the given configuration.
+pub(crate) fn init(config: &EyreConfig) -> eyre::Result<()> {
+    match config.mode {
+        EyreMode::Color => {
+            color_eyre::install()?;
+            Ok(())
         }
-    }
-}
-
-pub struct EyreBattery;
-
-impl EyreBattery {
-    pub fn init(config: EyreConfig) -> eyre::Result<()> {
-        match config.mode {
-            EyreMode::ColorEyre => {
-                color_eyre::install()?;
-                Ok(())
-            }
-            EyreMode::JsonEyre => {
-                json_eyre::install(
-                    config.with_default_backtrace,
-                    config.with_default_spantrace,
-                )?;
-                Ok(())
-            }
+        EyreMode::Json => {
+            json_eyre::install(
+                config.with_default_backtrace,
+                config.with_default_spantrace,
+            )?;
+            Ok(())
         }
     }
 }

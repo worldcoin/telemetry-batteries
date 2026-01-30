@@ -4,6 +4,8 @@ fn main() {
     let native_tls = cfg!(feature = "native-tls");
 
     if !rustls && !native_tls {
-        panic!("At least one TLS feature must be enabled: 'rustls' or 'native-tls'");
+        panic!(
+            "At least one TLS feature must be enabled: 'rustls' or 'native-tls'"
+        );
     }
 }
