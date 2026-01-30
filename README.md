@@ -117,6 +117,7 @@ let app = Router::new()
 ```
 
 The middleware automatically:
+
 - Creates a span for each request
 - Extracts trace context from incoming headers (e.g., `traceparent`)
 - Injects trace context into response headers
@@ -147,7 +148,7 @@ let layer = TraceLayer::new().with_make_span(|req| {
 
 ## Examples
 
-See the [examples](examples) directory:
+See the examples directory:
 
 - `basic.rs` - Minimal setup with environment variables
 - `axum_tracing.rs` - Axum server with distributed trace propagation
