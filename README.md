@@ -147,7 +147,7 @@ let layer = TraceLayer::new().with_make_span(|req| {
 
 ## Examples
 
-See the [examples](telemetry-batteries/examples) directory:
+See the [examples](examples) directory:
 
 - `basic.rs` - Minimal setup with environment variables
 - `axum_tracing.rs` - Axum server with distributed trace propagation
@@ -156,13 +156,13 @@ Run the examples:
 
 ```bash
 # Basic example with local preset
-cargo run -p telemetry-batteries --example basic
+cargo run --example basic
 
 # Basic example with Datadog
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run -p telemetry-batteries --example basic
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run --example basic
 
 # Axum server with trace propagation
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run -p telemetry-batteries --example axum_tracing
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run --example axum_tracing
 ```
 
 ## License
