@@ -5,7 +5,8 @@ Batteries-included telemetry for Rust applications. Configure tracing, metrics, 
 ## Quick Start
 
 ```rust
-fn main() -> eyre::Result<()> {
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
     // Initialize from environment variables
     let _guard = telemetry_batteries::init()?;
 
@@ -65,7 +66,8 @@ use telemetry_batteries::{
     MetricsConfig, MetricsBackend, StatsdConfig,
 };
 
-fn main() -> eyre::Result<()> {
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
     let config = TelemetryConfig::builder()
         .preset(TelemetryPreset::Datadog)
         .service_name("my-service".to_owned())
