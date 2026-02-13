@@ -11,7 +11,9 @@ use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
+use tracing_subscriber::fmt::{
+    FmtContext, FormatEvent, FormatFields, FormattedFields,
+};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{Layer, fmt};
 
@@ -145,10 +147,13 @@ where
             if let Some(scope) = ctx.event_scope() {
                 for span in scope.from_root() {
                     let extensions = span.extensions();
-                    if let Some(fields) = extensions.get::<FormattedFields<N>>() {
+                    if let Some(fields) = extensions.get::<FormattedFields<N>>()
+                    {
                         if !fields.is_empty() {
                             if let Ok(serde_json::Value::Object(fields)) =
-                                serde_json::from_str::<serde_json::Value>(fields)
+                                serde_json::from_str::<serde_json::Value>(
+                                    fields,
+                                )
                             {
                                 for (key, value) in fields {
                                     serializer.serialize_entry(&key, &value)?;
@@ -189,9 +194,9 @@ mod tests {
     use std::io;
     use std::sync::{Arc, Mutex};
 
+    use tracing_subscriber::fmt;
     use tracing_subscriber::fmt::MakeWriter;
     use tracing_subscriber::prelude::*;
-    use tracing_subscriber::fmt;
 
     use super::DatadogFormat;
 
@@ -281,9 +286,17 @@ mod tests {
         let subscriber = tracing_subscriber::registry().with(layer);
 
         tracing::subscriber::with_default(subscriber, || {
-            let outer = tracing::info_span!("outer", shared = "from_outer", outer_only = "yes");
+            let outer = tracing::info_span!(
+                "outer",
+                shared = "from_outer",
+                outer_only = "yes"
+            );
             let _outer_guard = outer.enter();
-            let inner = tracing::info_span!("inner", shared = "from_inner", inner_only = "yes");
+            let inner = tracing::info_span!(
+                "inner",
+                shared = "from_inner",
+                inner_only = "yes"
+            );
             let _inner_guard = inner.enter();
             tracing::info!("nested event");
         });
