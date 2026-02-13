@@ -148,17 +148,12 @@ where
                 for span in scope.from_root() {
                     let extensions = span.extensions();
                     if let Some(fields) = extensions.get::<FormattedFields<N>>()
+                        && !fields.is_empty()
+                        && let Ok(serde_json::Value::Object(fields)) =
+                            serde_json::from_str::<serde_json::Value>(fields)
                     {
-                        if !fields.is_empty() {
-                            if let Ok(serde_json::Value::Object(fields)) =
-                                serde_json::from_str::<serde_json::Value>(
-                                    fields,
-                                )
-                            {
-                                for (key, value) in fields {
-                                    serializer.serialize_entry(&key, &value)?;
-                                }
-                            }
+                        for (key, value) in fields {
+                            serializer.serialize_entry(&key, &value)?;
                         }
                     }
                 }
