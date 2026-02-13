@@ -11,7 +11,7 @@ use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
+use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{Layer, fmt};
 
@@ -98,11 +98,16 @@ where
     }
 }
 
-/// Custom JSON formatter for Datadog that includes trace correlation fields.
+/// Custom JSON formatter for Datadog that includes trace correlation fields
+/// and propagates span fields into the log output.
+///
+/// Fields from ancestor spans (set via `#[instrument(fields(...))]` or
+/// `tracing::info_span!`) are flattened into each log line. Inner spans
+/// override outer spans, and event-level fields override all span fields.
 ///
 /// Output format:
 /// ```json
-/// {"timestamp":"...","level":"INFO","target":"my_app","message":"...","dd.trace_id":"123","dd.span_id":"456"}
+/// {"timestamp":"...","level":"INFO","target":"my_app","request_id":"abc","message":"...","dd.trace_id":"123","dd.span_id":"456"}
 /// ```
 pub struct DatadogFormat;
 
@@ -135,6 +140,25 @@ where
             serializer.serialize_entry("level", &meta.level().as_serde())?;
             serializer.serialize_entry("target", meta.target())?;
 
+            // Propagate fields from ancestor spans (outer-to-inner).
+            // Inner span fields override outer; event fields override all.
+            if let Some(scope) = ctx.event_scope() {
+                for span in scope.from_root() {
+                    let extensions = span.extensions();
+                    if let Some(fields) = extensions.get::<FormattedFields<N>>() {
+                        if !fields.is_empty() {
+                            if let Ok(serde_json::Value::Object(fields)) =
+                                serde_json::from_str::<serde_json::Value>(fields)
+                            {
+                                for (key, value) in fields {
+                                    serializer.serialize_entry(&key, &value)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             let mut visitor = tracing_serde::SerdeMapVisitor::new(serializer);
             event.record(&mut visitor);
             serializer = visitor.take_serializer()?;
@@ -157,5 +181,138 @@ where
         visit().map_err(|_| std::fmt::Error)?;
 
         writeln!(writer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::sync::{Arc, Mutex};
+
+    use tracing_subscriber::fmt::MakeWriter;
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::fmt;
+
+    use super::DatadogFormat;
+
+    #[derive(Clone)]
+    struct BufWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl BufWriter {
+        fn new() -> Self {
+            Self(Arc::new(Mutex::new(Vec::new())))
+        }
+
+        fn contents(&self) -> String {
+            String::from_utf8(self.0.lock().unwrap().clone()).unwrap()
+        }
+    }
+
+    impl io::Write for BufWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> MakeWriter<'a> for BufWriter {
+        type Writer = BufWriter;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    fn parse_log_line(raw: &str) -> serde_json::Value {
+        let line = raw.trim();
+        serde_json::from_str(line).expect("log line is not valid JSON")
+    }
+
+    #[test]
+    fn test_event_without_spans_has_no_span_fields() {
+        let buf = BufWriter::new();
+        let layer = fmt::Layer::new()
+            .json()
+            .event_format(DatadogFormat)
+            .with_writer(buf.clone());
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!("bare event");
+        });
+
+        let log = parse_log_line(&buf.contents());
+        assert_eq!(log["message"], "bare event");
+        assert!(log.get("dd.trace_id").is_none());
+    }
+
+    #[test]
+    fn test_span_fields_propagated_to_event() {
+        let buf = BufWriter::new();
+        let layer = fmt::Layer::new()
+            .json()
+            .event_format(DatadogFormat)
+            .with_writer(buf.clone());
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("my_span", request_id = "abc-123");
+            let _guard = span.enter();
+            tracing::info!("inside span");
+        });
+
+        let log = parse_log_line(&buf.contents());
+        assert_eq!(log["message"], "inside span");
+        assert_eq!(log["request_id"], "abc-123");
+    }
+
+    #[test]
+    fn test_nested_span_fields_inner_overrides_outer() {
+        let buf = BufWriter::new();
+        let layer = fmt::Layer::new()
+            .json()
+            .event_format(DatadogFormat)
+            .with_writer(buf.clone());
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let outer = tracing::info_span!("outer", shared = "from_outer", outer_only = "yes");
+            let _outer_guard = outer.enter();
+            let inner = tracing::info_span!("inner", shared = "from_inner", inner_only = "yes");
+            let _inner_guard = inner.enter();
+            tracing::info!("nested event");
+        });
+
+        let log = parse_log_line(&buf.contents());
+        assert_eq!(log["message"], "nested event");
+        assert_eq!(log["shared"], "from_inner");
+        assert_eq!(log["outer_only"], "yes");
+        assert_eq!(log["inner_only"], "yes");
+    }
+
+    #[test]
+    fn test_event_fields_override_span_fields() {
+        let buf = BufWriter::new();
+        let layer = fmt::Layer::new()
+            .json()
+            .event_format(DatadogFormat)
+            .with_writer(buf.clone());
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("my_span", user = "from_span");
+            let _guard = span.enter();
+            tracing::info!(user = "from_event", "with override");
+        });
+
+        let log = parse_log_line(&buf.contents());
+        assert_eq!(log["message"], "with override");
+        assert_eq!(log["user"], "from_event");
     }
 }
