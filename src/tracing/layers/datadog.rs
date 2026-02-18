@@ -5,7 +5,9 @@ use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
-use opentelemetry_sdk::trace::{BatchConfigBuilder, Sampler, SdkTracerProvider};
+use opentelemetry_sdk::trace::{
+    BatchConfigBuilder, Sampler, SdkTracerProvider,
+};
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
