@@ -14,6 +14,11 @@ pub use config::{
 };
 pub use guard::TelemetryGuard;
 
+// Re-export core telemetry crates so downstream consumers use the same
+// version as telemetry-batteries, preventing duplicate-version conflicts.
+pub use opentelemetry;
+pub use tracing_opentelemetry;
+
 /// Reexports of crates that appear in the public API.
 ///
 /// Using these directly instead of adding them yourself to Cargo.toml will help avoid
