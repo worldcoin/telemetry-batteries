@@ -5,7 +5,7 @@ use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
-use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
+use opentelemetry_sdk::trace::{BatchConfigBuilder, Sampler, SdkTracerProvider};
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use tracing::{Event, Subscriber};
@@ -36,6 +36,8 @@ where
     // seems to prevent client reuse and avoid the errors in question
     let dd_http_client = reqwest::ClientBuilder::new()
         .pool_idle_timeout(Duration::from_millis(1))
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(30))
         .build()
         .expect("Could not init datadog http_client");
 
@@ -50,7 +52,29 @@ where
         .build_exporter()
         .expect("failed to build OpenTelemetry datadog exporter");
 
-    let batch_processor = BatchSpanProcessor::builder(exporter, Tokio).build();
+    // SAFETY(backpressure): The async-runtime BatchSpanProcessor uses a bounded
+    // channel with try_send(). When max_queue_size is reached, new spans are
+    // silently dropped — never queued with backpressure. This guarantees that
+    // application HTTP handlers never block or deadlock due to slow span export.
+    //
+    // The reqwest client has an explicit 30s timeout to prevent export futures
+    // from hanging indefinitely when the Datadog agent is slow or unreachable.
+    // The BSP's max_export_timeout (also 30s) acts as a secondary guard via
+    // future::select cancellation.
+    //
+    // Without these timeouts, a slow/unreachable DD agent causes the export
+    // future to hang indefinitely, which can exhaust tokio worker threads
+    // shared with application HTTP handlers — deadlocking the runtime.
+    let batch_config = BatchConfigBuilder::default()
+        .with_max_queue_size(2048)
+        .with_max_export_batch_size(512)
+        .with_scheduled_delay(Duration::from_secs(5))
+        .with_max_export_timeout(Duration::from_secs(30))
+        .build();
+
+    let batch_processor = BatchSpanProcessor::builder(exporter, Tokio)
+        .with_batch_config(batch_config)
+        .build();
 
     let provider = SdkTracerProvider::builder()
         .with_span_processor(batch_processor)
