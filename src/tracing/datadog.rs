@@ -3,7 +3,6 @@
 use crate::config::LogFormat;
 use crate::tracing::layers::datadog::datadog_layer;
 use opentelemetry_datadog::DatadogPropagator;
-use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt,
 };
@@ -28,10 +27,7 @@ pub(crate) fn init(
     let (dd_layer, provider) =
         datadog_layer(service_name, endpoint, log_format);
     let layers = EnvFilter::new(log_level).and_then(dd_layer);
-    tracing_subscriber::registry()
-        .with(layers)
-        .with(ErrorLayer::default())
-        .init();
+    tracing_subscriber::registry().with(layers).init();
 
     TracingShutdownHandle::new(provider)
 }
