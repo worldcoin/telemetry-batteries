@@ -2,7 +2,6 @@
 
 use crate::config::LogFormat;
 use crate::tracing::TracingShutdownHandle;
-use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt,
 };
@@ -26,10 +25,7 @@ pub(crate) fn init(
                 .with_line_number(true)
                 .with_file(true)
                 .with_filter(filter);
-            tracing_subscriber::registry()
-                .with(layer)
-                .with(ErrorLayer::default())
-                .init();
+            tracing_subscriber::registry().with(layer).init();
         }
         LogFormat::Json | LogFormat::DatadogJson => {
             // DatadogJson without the Datadog backend falls back to standard JSON
@@ -38,20 +34,14 @@ pub(crate) fn init(
                 .with_writer(std::io::stdout)
                 .json()
                 .with_filter(filter);
-            tracing_subscriber::registry()
-                .with(layer)
-                .with(ErrorLayer::default())
-                .init();
+            tracing_subscriber::registry().with(layer).init();
         }
         LogFormat::Compact => {
             let layer = fmt::layer()
                 .with_writer(std::io::stdout)
                 .compact()
                 .with_filter(filter);
-            tracing_subscriber::registry()
-                .with(layer)
-                .with(ErrorLayer::default())
-                .init();
+            tracing_subscriber::registry().with(layer).init();
         }
     }
 

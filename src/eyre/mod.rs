@@ -5,13 +5,12 @@
 //!
 //! # Environment Variables
 //!
-//! Backtrace/spantrace capture can be controlled via environment variables.
-//! If set, they override the `with_default_*` config flags:
+//! Backtrace capture can be controlled via environment variables.
+//! If set, they override the `with_default_backtrace` config flag:
 //!
 //! | Feature   | Env Var                                  | Enabled     | Disabled |
 //! |-----------|------------------------------------------|-------------|----------|
 //! | Backtrace | `RUST_LIB_BACKTRACE` or `RUST_BACKTRACE` | any (not 0) | `0`      |
-//! | Spantrace | `RUST_SPANTRACE`                         | any (not 0) | `0`      |
 
 pub mod json_eyre;
 
