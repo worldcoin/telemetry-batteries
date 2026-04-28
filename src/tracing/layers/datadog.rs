@@ -3,10 +3,11 @@ use std::time::Duration;
 use chrono::Utc;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_datadog::ApiVersion;
+use opentelemetry_sdk::error::OTelSdkResult;
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
 use opentelemetry_sdk::trace::{
-    BatchConfigBuilder, Sampler, SdkTracerProvider,
+    BatchConfigBuilder, Sampler, SdkTracerProvider, SpanData, SpanExporter,
 };
 use serde::Serializer;
 use serde::ser::SerializeMap;
@@ -24,6 +25,51 @@ use crate::tracing::id_generator::ReducedIdGenerator;
 use crate::tracing::{
     WriteAdapter, opentelemetry_span_id, opentelemetry_trace_id,
 };
+
+#[derive(Debug)]
+struct WarningOnExportFailure<E> {
+    inner: E,
+}
+
+impl<E> WarningOnExportFailure<E> {
+    fn new(inner: E) -> Self {
+        Self { inner }
+    }
+}
+
+impl<E> SpanExporter for WarningOnExportFailure<E>
+where
+    E: SpanExporter,
+{
+    async fn export(&self, batch: Vec<SpanData>) -> OTelSdkResult {
+        match self.inner.export(batch).await {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                // OpenTelemetry's batch span processor logs these export failures at ERROR.
+                // In practice they are transient/non-actionable for callers of this crate, so
+                // downgrade them to WARN here and suppress the SDK's internal ERROR log.
+                tracing::warn!(error = %err, "Failed during the export process");
+                Ok(())
+            }
+        }
+    }
+
+    fn shutdown_with_timeout(&mut self, timeout: Duration) -> OTelSdkResult {
+        self.inner.shutdown_with_timeout(timeout)
+    }
+
+    fn shutdown(&mut self) -> OTelSdkResult {
+        self.inner.shutdown()
+    }
+
+    fn force_flush(&mut self) -> OTelSdkResult {
+        self.inner.force_flush()
+    }
+
+    fn set_resource(&mut self, resource: &opentelemetry_sdk::Resource) {
+        self.inner.set_resource(resource);
+    }
+}
 
 pub fn datadog_layer<S>(
     service_name: &str,
@@ -46,13 +92,15 @@ where
     // Build the exporter manually so we can use a tokio-based BatchSpanProcessor.
     // The default install_batch() spawns a thread without tokio runtime, which causes
     // reqwest to panic when doing DNS resolution.
-    let exporter = opentelemetry_datadog::new_pipeline()
-        .with_http_client(dd_http_client)
-        .with_agent_endpoint(endpoint)
-        .with_service_name(service_name)
-        .with_api_version(ApiVersion::Version05)
-        .build_exporter()
-        .expect("failed to build OpenTelemetry datadog exporter");
+    let exporter = WarningOnExportFailure::new(
+        opentelemetry_datadog::new_pipeline()
+            .with_http_client(dd_http_client)
+            .with_agent_endpoint(endpoint)
+            .with_service_name(service_name)
+            .with_api_version(ApiVersion::Version05)
+            .build_exporter()
+            .expect("failed to build OpenTelemetry datadog exporter"),
+    );
 
     // SAFETY(backpressure): The async-runtime BatchSpanProcessor uses a bounded
     // channel with try_send(). When max_queue_size is reached, new spans are
@@ -158,7 +206,7 @@ where
         let span_id = opentelemetry_span_id(ctx);
         let trace_id = opentelemetry_trace_id(ctx);
 
-        let mut visit = || {
+        let mut visit = || -> Result<(), serde_json::Error> {
             let mut serializer =
                 serde_json::Serializer::new(WriteAdapter::new(&mut writer));
             let mut serializer = serializer.serialize_map(None)?;
@@ -168,44 +216,47 @@ where
             serializer.serialize_entry("level", &meta.level().as_serde())?;
             serializer.serialize_entry("target", meta.target())?;
 
-            // Propagate fields from ancestor spans (outer-to-inner).
-            // Inner span fields override outer; event fields override all.
+            // First, collect span fields from root to current. Later (inner) spans override earlier (outer).
             if let Some(scope) = ctx.event_scope() {
-                for span in scope.from_root() {
-                    let extensions = span.extensions();
-                    if let Some(fields) = extensions.get::<FormattedFields<N>>()
-                        && !fields.is_empty()
-                        && let Ok(serde_json::Value::Object(fields)) =
-                            serde_json::from_str::<serde_json::Value>(fields)
-                    {
-                        for (key, value) in fields {
-                            serializer.serialize_entry(&key, &value)?;
+                let mut spans: Vec<_> = scope.from_root().collect();
+                for span in spans.drain(..) {
+                    let exts = span.extensions();
+                    if let Some(fields) = exts.get::<FormattedFields<N>>() {
+                        if !fields.fields.is_empty() {
+                            let map: serde_json::Map<
+                                String,
+                                serde_json::Value,
+                            > = serde_json::from_str(&fields.fields)?;
+                            for (k, v) in map {
+                                serializer.serialize_entry(&k, &v)?;
+                            }
                         }
                     }
                 }
             }
 
+            // Then serialize event fields, overriding any span-level duplicates.
             let mut visitor = tracing_serde::SerdeMapVisitor::new(serializer);
             event.record(&mut visitor);
             serializer = visitor.take_serializer()?;
 
-            if let Some(trace_id) = trace_id {
+            if let Some(id) = trace_id {
                 // The opentelemetry-datadog crate truncates the 128-bit trace-id
-                // into a u64 before formatting it.
-                let trace_id = format!("{}", trace_id as u64);
-                serializer.serialize_entry("dd.trace_id", &trace_id)?;
+                // to the lower 64 bits when exporting. Datadog log correlation
+                // expects that same 64-bit decimal value.
+                let dd_trace_id = (id & 0xffff_ffff_ffff_ffff) as u64;
+                serializer
+                    .serialize_entry("dd.trace_id", &dd_trace_id.to_string())?;
+            }
+            if let Some(id) = span_id {
+                serializer.serialize_entry("dd.span_id", &id.to_string())?;
             }
 
-            if let Some(span_id) = span_id {
-                let span_id = format!("{span_id}");
-                serializer.serialize_entry("dd.span_id", &span_id)?;
-            }
-
-            serializer.end()
+            serializer.end()?;
+            Ok(())
         };
 
         visit().map_err(|_| std::fmt::Error)?;
-
         writeln!(writer)
     }
 }
@@ -215,11 +266,13 @@ mod tests {
     use std::io;
     use std::sync::{Arc, Mutex};
 
+    use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
+    use opentelemetry_sdk::trace::{SpanData, SpanExporter};
     use tracing_subscriber::fmt;
     use tracing_subscriber::fmt::MakeWriter;
     use tracing_subscriber::prelude::*;
 
-    use super::DatadogFormat;
+    use super::{DatadogFormat, WarningOnExportFailure};
 
     #[derive(Clone)]
     struct BufWriter(Arc<Mutex<Vec<u8>>>);
@@ -254,6 +307,39 @@ mod tests {
     fn parse_log_line(raw: &str) -> serde_json::Value {
         let line = raw.trim();
         serde_json::from_str(line).expect("log line is not valid JSON")
+    }
+
+    #[derive(Debug)]
+    struct FailingExporter;
+
+    impl SpanExporter for FailingExporter {
+        async fn export(&self, _batch: Vec<SpanData>) -> OTelSdkResult {
+            Err(OTelSdkError::InternalFailure("boom".into()))
+        }
+    }
+
+    #[test]
+    fn test_export_failures_are_downgraded_to_warn() {
+        let buf = BufWriter::new();
+        let layer = fmt::Layer::new().json().with_writer(buf.clone());
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let runtime = tokio::runtime::Runtime::new().unwrap();
+            runtime.block_on(async {
+                let exporter = WarningOnExportFailure::new(FailingExporter);
+                let result = exporter.export(Vec::new()).await;
+                assert!(result.is_ok());
+            });
+        });
+
+        let log = parse_log_line(&buf.contents());
+        assert_eq!(log["level"], "WARN");
+        assert_eq!(
+            log["fields"]["message"],
+            "Failed during the export process"
+        );
+        assert_eq!(log["fields"]["error"], "Operation failed: boom");
     }
 
     #[test]
