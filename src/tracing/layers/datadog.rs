@@ -221,15 +221,13 @@ where
                 let mut spans: Vec<_> = scope.from_root().collect();
                 for span in spans.drain(..) {
                     let exts = span.extensions();
-                    if let Some(fields) = exts.get::<FormattedFields<N>>() {
-                        if !fields.fields.is_empty() {
-                            let map: serde_json::Map<
-                                String,
-                                serde_json::Value,
-                            > = serde_json::from_str(&fields.fields)?;
-                            for (k, v) in map {
-                                serializer.serialize_entry(&k, &v)?;
-                            }
+                    if let Some(fields) = exts.get::<FormattedFields<N>>()
+                        && !fields.fields.is_empty()
+                    {
+                        let map: serde_json::Map<String, serde_json::Value> =
+                            serde_json::from_str(&fields.fields)?;
+                        for (k, v) in map {
+                            serializer.serialize_entry(&k, &v)?;
                         }
                     }
                 }
