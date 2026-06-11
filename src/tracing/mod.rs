@@ -2,6 +2,8 @@ pub(crate) mod datadog;
 pub(crate) mod id_generator;
 pub mod layers;
 pub mod middleware;
+#[cfg(feature = "traced-reqwest")]
+pub mod reqwest;
 pub(crate) mod stdout;
 
 use opentelemetry::Context;

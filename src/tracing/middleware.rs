@@ -117,8 +117,8 @@ fn default_make_span(request: &http::Request<()>) -> Span {
 /// When applied to a service, this layer will:
 /// 1. Create a request span (customizable via [`with_make_span`](Self::with_make_span))
 /// 2. Extract trace context from incoming request headers (e.g., `traceparent`)
+///    and set it as the span's parent **before** the span is entered
 /// 3. Run the inner service within the span
-/// 4. Inject trace context into outgoing response headers
 ///
 /// # Example
 ///
