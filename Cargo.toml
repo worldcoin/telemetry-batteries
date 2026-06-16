@@ -1,6 +1,6 @@
 [package]
 name = "telemetry-batteries"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 description = "Batteries included library to configure tracing, logs and metrics"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
@@ -40,7 +40,9 @@ tower = "0.5"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-opentelemetry = "0.32"
-tracing-opentelemetry-instrumentation-sdk = { version = "0.32", features = ["http"] }
+tracing-opentelemetry-instrumentation-sdk = { version = "0.32", features = [
+  "http",
+] }
 tracing-serde = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 rand = "0.9"
