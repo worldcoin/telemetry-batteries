@@ -46,11 +46,17 @@ impl Drop for TracingShutdownHandle {
 }
 
 pub fn trace_from_headers(headers: &http::HeaderMap) {
-    let _ = tracing::Span::current().set_parent(
+    let current_span = tracing::Span::current();
+
+    println!("before:current_span = {current_span:?}");
+
+    let _ = current_span.set_parent(
         opentelemetry::global::get_text_map_propagator(|propagator| {
             propagator.extract(&opentelemetry_http::HeaderExtractor(headers))
         }),
     );
+
+    println!("after:current_span = {current_span:?}");
 }
 
 pub fn trace_to_headers(headers: &mut http::HeaderMap) {

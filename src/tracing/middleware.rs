@@ -10,8 +10,7 @@ use std::task::{Context, Poll};
 use http::{Request, Response};
 use tower::{Layer, Service};
 use tracing::{Instrument, Span, info_span};
-
-use super::{trace_from_headers, trace_to_headers};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 /// Function type for creating custom spans.
 pub type MakeSpan = fn(&http::Request<()>) -> Span;
@@ -131,7 +130,7 @@ where
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
         // Clone to satisfy borrow checker for the async block
         let inner = self.inner.clone();
-        let inner = std::mem::replace(&mut self.inner, inner);
+        let mut inner = std::mem::replace(&mut self.inner, inner);
 
         // Create a temporary request view for span creation (avoids body type issues)
         let span_request = http::Request::builder()
@@ -141,21 +140,14 @@ where
             .expect("request builder with () body cannot fail");
 
         let span = (self.make_span)(&span_request);
+        let _ = span.set_parent(
+            opentelemetry::global::get_text_map_propagator(|propagator| {
+                propagator.extract(&opentelemetry_http::HeaderExtractor(
+                    request.headers(),
+                ))
+            }),
+        );
 
-        Box::pin(
-            async move {
-                // Extract trace context from incoming headers and attach to current span
-                trace_from_headers(request.headers());
-
-                let mut inner = inner;
-                let mut response = inner.call(request).await?;
-
-                // Inject trace context into response headers
-                trace_to_headers(response.headers_mut());
-
-                Ok(response)
-            }
-            .instrument(span),
-        )
+        Box::pin(async move { inner.call(request).await }.instrument(span))
     }
 }
