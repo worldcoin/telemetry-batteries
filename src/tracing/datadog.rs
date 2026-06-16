@@ -1,11 +1,9 @@
 //! Datadog tracing initialization.
 
 use crate::config::LogFormat;
-use crate::tracing::layers::datadog::datadog_layer;
+use crate::tracing::layers::datadog::datadog_layer_with_log_filter;
 use opentelemetry_datadog::DatadogPropagator;
-use tracing_subscriber::{
-    EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt,
-};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use super::TracingShutdownHandle;
 
@@ -24,10 +22,13 @@ pub(crate) fn init(
 
     let endpoint = endpoint.unwrap_or(DEFAULT_DATADOG_AGENT_ENDPOINT);
 
-    let (dd_layer, provider) =
-        datadog_layer(service_name, endpoint, log_format);
-    let layers = EnvFilter::new(log_level).and_then(dd_layer);
-    tracing_subscriber::registry().with(layers).init();
+    let (dd_layer, provider) = datadog_layer_with_log_filter(
+        service_name,
+        endpoint,
+        log_format,
+        log_level,
+    );
+    tracing_subscriber::registry().with(dd_layer).init();
 
     TracingShutdownHandle::new(provider)
 }

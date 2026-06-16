@@ -2,27 +2,114 @@
 //!
 //! Provides a [`TraceLayer`] that automatically extracts trace context from
 //! incoming request headers and injects it into outgoing response headers.
+//!
+//! This module also exposes a set of small helpers that match the conventions
+//! used by `will-bank/datadog-tracing`:
+//!
+//! - [`make_span_from_request`] — build a richly-tagged server span from an
+//!   `http::Request`, populating the standard OpenTelemetry `http.*`,
+//!   `url.*`, `network.*`, `server.*`, `user_agent.*` and Datadog
+//!   compatibility fields up-front.
+//! - [`update_span_from_response`] — record the response status code and
+//!   set `otel.status_code = ERROR` on 5xx responses.
+//! - [`update_span_from_error`] — record `otel.status_code = ERROR` and the
+//!   error's message under `exception.message`.
+//! - [`update_span_from_response_or_error`] — convenience dispatcher used
+//!   when wrapping a fallible handler.
 
+use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use http::{Request, Response};
 use tower::{Layer, Service};
-use tracing::{Instrument, Span, info_span};
-
-use super::{trace_from_headers, trace_to_headers};
+use tracing::field::Empty;
+use tracing::{Instrument, Span};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+use tracing_opentelemetry_instrumentation_sdk::TRACING_TARGET;
+use tracing_opentelemetry_instrumentation_sdk::http::{
+    http_flavor, http_host, url_scheme, user_agent,
+};
 
 /// Function type for creating custom spans.
 pub type MakeSpan = fn(&http::Request<()>) -> Span;
 
-fn default_make_span(request: &http::Request<()>) -> Span {
-    info_span!(
-        "request",
-        http.method = %request.method(),
-        http.path = %request.uri().path(),
-        http.query = ?request.uri().query(),
+/// Build a richly-tagged server span for an HTTP request.
+///
+/// The set of fields mirrors the conventions used by
+/// `will-bank/datadog-tracing` and includes the standard OpenTelemetry
+/// `http.*`/`url.*`/`network.*`/`server.*`/`user_agent.*` attributes
+/// alongside Datadog-specific aliases (`http.status_code`, `span.type`).
+///
+/// Fields that are only known once the response is produced (status code,
+/// route, client address, trace/request ids, exception message) are declared
+/// as [`tracing::field::Empty`] so they can be populated later via
+/// [`update_span_from_response`] / [`update_span_from_error`].
+pub fn make_span_from_request<B>(req: &http::Request<B>) -> Span {
+    let http_method = req.method();
+    tracing::trace_span!(
+        target: TRACING_TARGET,
+        "HTTP request",
+        http.request.method = %http_method,
+        http.route = Empty,
+        network.protocol.version = %http_flavor(req.version()),
+        server.address = http_host(req),
+        http.client.address = Empty,
+        user_agent.original = user_agent(req),
+        http.response.status_code = Empty,
+        // Datadog alias kept alongside the OTel-native field.
+        http.status_code = Empty,
+        url.path = req.uri().path(),
+        url.query = req.uri().query(),
+        url.scheme = url_scheme(req.uri()),
+        otel.name = %http_method,
+        otel.kind = ?opentelemetry::trace::SpanKind::Server,
+        otel.status_code = Empty,
+        trace_id = Empty,
+        request_id = Empty,
+        exception.message = Empty,
+        // Datadog-specific, non-standard OTel.
+        "span.type" = "web",
     )
+}
+
+/// Record the response status code on the span and mark 5xx responses as
+/// errored for OpenTelemetry / Datadog.
+pub fn update_span_from_response<B>(span: &Span, response: &http::Response<B>) {
+    let status = response.status();
+    span.record("http.response.status_code", status.as_u16());
+    span.record("http.status_code", status.as_u16());
+    if status.is_server_error() {
+        span.record("otel.status_code", "ERROR");
+    }
+}
+
+/// Record an error on the span: sets `otel.status_code = ERROR` and copies
+/// the error's `Display` representation into `exception.message`. If the
+/// error chains a source it is recorded as well.
+pub fn update_span_from_error<E: Error>(span: &Span, error: &E) {
+    span.record("otel.status_code", "ERROR");
+    span.record("exception.message", error.to_string());
+    if let Some(source) = error.source() {
+        span.record("exception.message", source.to_string());
+    }
+}
+
+/// Dispatch helper that updates the span from either a successful response
+/// or an error.
+pub fn update_span_from_response_or_error<B, E: Error>(
+    span: &Span,
+    result: &Result<http::Response<B>, E>,
+) {
+    match result {
+        Ok(response) => update_span_from_response(span, response),
+        Err(error) => update_span_from_error(span, error),
+    }
+}
+
+fn default_make_span(request: &http::Request<()>) -> Span {
+    make_span_from_request(request)
 }
 
 /// Tower layer that propagates distributed trace context.
@@ -131,29 +218,39 @@ where
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
         // Clone to satisfy borrow checker for the async block
         let inner = self.inner.clone();
-        let inner = std::mem::replace(&mut self.inner, inner);
+        let mut inner = std::mem::replace(&mut self.inner, inner);
 
-        // Create a temporary request view for span creation (avoids body type issues)
-        let span_request = http::Request::builder()
+        // Build a body-erased view of the request for span creation. We
+        // copy the headers across so helpers like `http_host` and
+        // `user_agent` can populate the span correctly.
+        let mut span_request_builder = http::Request::builder()
             .method(request.method().clone())
             .uri(request.uri().clone())
+            .version(request.version());
+        if let Some(headers) = span_request_builder.headers_mut() {
+            *headers = request.headers().clone();
+        }
+        let span_request = span_request_builder
             .body(())
             .expect("request builder with () body cannot fail");
 
         let span = (self.make_span)(&span_request);
+        let _ = span.set_parent(
+            opentelemetry::global::get_text_map_propagator(|propagator| {
+                propagator.extract(&opentelemetry_http::HeaderExtractor(
+                    request.headers(),
+                ))
+            }),
+        );
 
+        let span_for_response = span.clone();
         Box::pin(
             async move {
-                // Extract trace context from incoming headers and attach to current span
-                trace_from_headers(request.headers());
-
-                let mut inner = inner;
-                let mut response = inner.call(request).await?;
-
-                // Inject trace context into response headers
-                trace_to_headers(response.headers_mut());
-
-                Ok(response)
+                let result = inner.call(request).await;
+                if let Ok(ref response) = result {
+                    update_span_from_response(&span_for_response, response);
+                }
+                result
             }
             .instrument(span),
         )

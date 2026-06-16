@@ -17,7 +17,7 @@ use tracing_subscriber::fmt::{
     FmtContext, FormatEvent, FormatFields, FormattedFields,
 };
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::{Layer, fmt};
+use tracing_subscriber::{EnvFilter, Layer, fmt};
 
 use crate::config::LogFormat;
 use crate::tracing::id_generator::ReducedIdGenerator;
@@ -33,6 +33,39 @@ pub fn datadog_layer<S>(
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
+    let provider = datadog_provider(service_name, endpoint);
+    // Use a static string for the tracer name since provider.tracer() requires 'static
+    let tracer = provider.tracer("telemetry-batteries");
+    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
+    let format_layer = datadog_format_layer(log_format);
+
+    (format_layer.and_then(otel_layer), provider)
+}
+
+/// Create a Datadog layer where `log_level` filters only log output.
+///
+/// OpenTelemetry span export remains unfiltered so low-level spans can still
+/// be propagated/exported even when logs default to `info`.
+pub fn datadog_layer_with_log_filter<S>(
+    service_name: &str,
+    endpoint: &str,
+    log_format: LogFormat,
+    log_level: &str,
+) -> (impl Layer<S>, SdkTracerProvider)
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    let provider = datadog_provider(service_name, endpoint);
+    // Use a static string for the tracer name since provider.tracer() requires 'static
+    let tracer = provider.tracer("telemetry-batteries");
+    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
+    let format_layer =
+        datadog_format_layer(log_format).with_filter(EnvFilter::new(log_level));
+
+    (format_layer.and_then(otel_layer), provider)
+}
+
+fn datadog_provider(service_name: &str, endpoint: &str) -> SdkTracerProvider {
     // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
     // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved
     // seems to prevent client reuse and avoid the errors in question
@@ -87,12 +120,7 @@ where
     // Set as global tracer provider
     opentelemetry::global::set_tracer_provider(provider.clone());
 
-    // Use a static string for the tracer name since provider.tracer() requires 'static
-    let tracer = provider.tracer("telemetry-batteries");
-    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
-    let format_layer = datadog_format_layer(log_format);
-
-    (format_layer.and_then(otel_layer), provider)
+    provider
 }
 
 /// Create a format layer for Datadog.

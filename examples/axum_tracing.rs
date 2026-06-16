@@ -16,7 +16,10 @@
 //! curl http://localhost:3000/
 //!
 //! # Request with trace context (simulating upstream service)
-//! curl -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+//! curl \
+//! -H "x-datadog-trace-id: 7690679301650107577" \
+//! -H "x-datadog-parent-id: 16133904967205640245" \
+//! -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
 //!      http://localhost:3000/
 //! ```
 
