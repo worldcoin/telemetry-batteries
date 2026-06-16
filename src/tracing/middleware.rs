@@ -76,10 +76,7 @@ pub fn make_span_from_request<B>(req: &http::Request<B>) -> Span {
 
 /// Record the response status code on the span and mark 5xx responses as
 /// errored for OpenTelemetry / Datadog.
-pub fn update_span_from_response<B>(
-    span: &Span,
-    response: &http::Response<B>,
-) {
+pub fn update_span_from_response<B>(span: &Span, response: &http::Response<B>) {
     let status = response.status();
     span.record("http.response.status_code", status.as_u16());
     span.record("http.status_code", status.as_u16());

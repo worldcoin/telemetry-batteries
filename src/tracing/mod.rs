@@ -8,8 +8,7 @@ use opentelemetry::Context;
 use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
 pub(crate) use opentelemetry_sdk::trace::SdkTracerProvider;
 
-use std::path::PathBuf;
-use std::{fs, io};
+use std::io;
 use tracing::Subscriber;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_opentelemetry::OtelData;

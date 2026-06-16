@@ -33,9 +33,6 @@ async fn datadog_integration() -> eyre::Result<()> {
         preset: TelemetryPreset::Datadog,
         service_name: Some("datadog-integration-test".to_owned()),
         log_format: Some(LogFormat::DatadogJson),
-        // No Datadog agent is needed for this test. Export will fail on shutdown,
-        // but propagation happens before export.
-        datadog_endpoint: Some("http://127.0.0.1:9".to_owned()),
         ..TelemetryConfig::default()
     })?;
 
