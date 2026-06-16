@@ -41,7 +41,8 @@ async fn datadog_integration() -> eyre::Result<()> {
 
     let app = Router::new()
         .route("/trace", get(trace_ids))
-        .layer(TraceLayer::new());
+        .layer(TraceLayer::new())
+        .route("/no-trace", get(trace_ids));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
@@ -64,15 +65,32 @@ async fn datadog_integration() -> eyre::Result<()> {
         .error_for_status()?
         .text()
         .await?;
-    let response: TraceIds = serde_json::from_str(&body)?;
 
-    let _ = shutdown_tx.send(());
-    server.await??;
+    let response: TraceIds = serde_json::from_str(&body)?;
 
     assert_eq!(response.trace_id, TRACE_ID.to_string());
     // The incoming span id becomes the request span's parent; the request span
     // itself gets a new span id.
     assert_ne!(response.span_id, PARENT_SPAN_ID.to_string());
+
+    let body = reqwest::Client::new()
+        .get(format!("http://{addr}/no-trace"))
+        .header("x-datadog-trace-id", TRACE_ID.to_string())
+        .header("x-datadog-parent-id", PARENT_SPAN_ID.to_string())
+        .header("x-datadog-sampling-priority", "1")
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
+    let response: TraceIds = serde_json::from_str(&body)?;
+
+    // no traces or span because TraceLayer is not applied
+    assert_eq!(response.trace_id, "0");
+    assert_eq!(response.span_id, "0");
+
+    let _ = shutdown_tx.send(());
+    server.await??;
 
     Ok(())
 }
