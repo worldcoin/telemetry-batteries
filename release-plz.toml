@@ -1,0 +1,11 @@
+[workspace]
+git_release_enable = true
+git_release_type = "auto"
+pr_labels = ["release"]
+
+[[package]]
+name = "telemetry-batteries"
+release = true
+publish = true
+changelog_update = true
+changelog_path = "CHANGELOG.md"
