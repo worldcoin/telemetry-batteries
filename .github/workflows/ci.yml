@@ -41,9 +41,3 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v2.0.14
         with:
           command: check licenses sources
-
-  cargo-deny:
-    name: Licensing and Advisories
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
