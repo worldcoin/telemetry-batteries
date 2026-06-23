@@ -6,6 +6,7 @@ mod guard;
 #[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
 mod metrics;
 mod panic_hook;
+mod top_level;
 pub mod tracing;
 
 pub use config::{
@@ -14,6 +15,7 @@ pub use config::{
     TelemetryPreset,
 };
 pub use guard::TelemetryGuard;
+pub use top_level::TopLevelResultExt;
 
 // Re-export core telemetry crates so downstream consumers use the same
 // version as telemetry-batteries, preventing duplicate-version conflicts.
