@@ -111,6 +111,7 @@ fn log_panic(details: &PanicDetails, backtrace: &Backtrace) {
         tracing::error!(
             target: PANIC_LOG_TARGET,
             source = details.source,
+            details = details.message.as_str(),
             payload_type = details.payload_type,
             error_type = error.error_type(),
             error_chain = ?error.error_chain(),
@@ -121,13 +122,13 @@ fn log_panic(details: &PanicDetails, backtrace: &Backtrace) {
             thread_name = thread_name,
             thread_id = details.thread_id.as_str(),
             backtrace = %backtrace,
-            "{}",
-            details.message,
+            "Service exited with top-level error",
         );
     } else {
         tracing::error!(
             target: PANIC_LOG_TARGET,
             source = details.source,
+            details = details.message.as_str(),
             payload_type = details.payload_type,
             location_file = details.location_file.as_str(),
             location_line = details.location_line,
@@ -135,8 +136,7 @@ fn log_panic(details: &PanicDetails, backtrace: &Backtrace) {
             thread_name = thread_name,
             thread_id = details.thread_id.as_str(),
             backtrace = %backtrace,
-            "{}",
-            details.message,
+            "Service panicked",
         );
     }
 }
@@ -231,8 +231,9 @@ mod tests {
                 .expect("log line is not valid JSON");
         let fields = &log["fields"];
 
-        assert_eq!(fields["message"], "boom");
+        assert_eq!(fields["message"], "Service panicked");
         assert_eq!(fields["source"], "panic");
+        assert_eq!(fields["details"], "boom");
         assert_eq!(fields["payload_type"], "&str");
         assert_eq!(fields["location_file"], "src/main.rs");
         assert_eq!(fields["location_line"], 42);
@@ -274,8 +275,9 @@ mod tests {
                 .expect("log line is not valid JSON");
         let fields = &log["fields"];
 
-        assert_eq!(fields["message"], "boom");
+        assert_eq!(fields["message"], "Service exited with top-level error");
         assert_eq!(fields["source"], "top_level_error");
+        assert_eq!(fields["details"], "boom");
         assert_eq!(fields["payload_type"], type_name::<TopLevelError>());
         assert_eq!(fields["error_type"], "std::io::error::Error");
         assert!(fields["error_debug"].as_str().unwrap().contains("boom"));
