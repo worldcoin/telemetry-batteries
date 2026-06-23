@@ -1,7 +1,6 @@
 //! Prometheus metrics initialization.
 
 use metrics_exporter_prometheus::{BuildError, PrometheusBuilder};
-use std::{net::SocketAddr, time::Duration};
 
 use crate::config::{PrometheusConfig, PrometheusMode};
 
@@ -28,19 +27,4 @@ pub(crate) fn init(config: &PrometheusConfig) -> Result<(), BuildError> {
     };
 
     builder.install()
-}
-
-/// Legacy exporter config enum (kept for reference during migration).
-#[allow(dead_code)]
-pub(crate) enum PrometheusExporterConfig {
-    HttpListener {
-        listen_address: SocketAddr,
-    },
-    PushGateway {
-        endpoint: String,
-        interval: Duration,
-        username: Option<String>,
-        password: Option<String>,
-    },
-    Unconfigured,
 }
