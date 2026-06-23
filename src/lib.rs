@@ -5,6 +5,7 @@ pub mod eyre;
 mod guard;
 #[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
 mod metrics;
+mod panic_hook;
 pub mod tracing;
 
 pub use config::{
@@ -86,6 +87,7 @@ pub fn init_with_config(
 
     // Initialize eyre error reporting first
     eyre::init(&config.eyre)?;
+    panic_hook::install();
 
     let log_format = config.effective_log_format();
     let log_level = TelemetryConfig::log_level_from_env();
