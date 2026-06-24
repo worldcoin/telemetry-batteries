@@ -19,10 +19,6 @@ pub(crate) fn install() {
             let backtrace = Backtrace::force_capture();
 
             log_panic(&details, &backtrace);
-        } else if let Some(error) =
-            info.payload().downcast_ref::<TopLevelError>()
-        {
-            print_top_level_error(info, error);
         } else {
             previous_hook(info);
         }
@@ -137,27 +133,6 @@ fn log_panic(details: &PanicDetails, backtrace: &Backtrace) {
             thread_id = details.thread_id.as_str(),
             backtrace = %backtrace,
             "Service panicked",
-        );
-    }
-}
-
-fn print_top_level_error(info: &PanicHookInfo<'_>, error: &TopLevelError) {
-    eprintln!("top-level error: {}", error.message());
-    eprintln!("error type: {}", error.error_type());
-
-    if error.error_chain().len() > 1 {
-        eprintln!("error chain:");
-        for (index, source) in error.error_chain().iter().enumerate() {
-            eprintln!("  {index}: {source}");
-        }
-    }
-
-    if let Some(location) = info.location() {
-        eprintln!(
-            "location: {}:{}:{}",
-            location.file(),
-            location.line(),
-            location.column()
         );
     }
 }
