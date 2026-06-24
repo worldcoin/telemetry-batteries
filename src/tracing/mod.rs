@@ -2,6 +2,8 @@ pub(crate) mod datadog;
 pub(crate) mod id_generator;
 pub mod layers;
 pub mod middleware;
+#[cfg(feature = "traced-reqwest")]
+pub mod reqwest;
 pub(crate) mod stdout;
 
 use opentelemetry::Context;
@@ -51,6 +53,33 @@ pub fn trace_to_headers(headers: &mut http::HeaderMap) {
             &mut opentelemetry_http::HeaderInjector(headers),
         );
     });
+}
+
+/// Inject the current OpenTelemetry trace context into a
+/// [`reqwest::RequestBuilder`].
+///
+/// This is useful for codebases that use plain `reqwest` without
+/// `reqwest-middleware`. The returned builder carries the propagation
+/// headers (e.g. `traceparent`) so downstream services can join the
+/// same distributed trace.
+///
+/// # Example
+///
+/// ```ignore
+/// use telemetry_batteries::tracing::inject_trace_into_request;
+///
+/// let response = inject_trace_into_request(
+///         reqwest::Client::new().get("https://example.com"),
+///     )
+///     .send()
+///     .await?;
+/// ```
+pub fn inject_trace_into_request(
+    request: reqwest::RequestBuilder,
+) -> reqwest::RequestBuilder {
+    let mut headers = http::HeaderMap::new();
+    trace_to_headers(&mut headers);
+    request.headers(headers)
 }
 
 /// Finds Otel trace id by going up the span stack until we find a span
