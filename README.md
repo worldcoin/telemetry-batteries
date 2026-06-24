@@ -18,6 +18,27 @@ async fn main() -> eyre::Result<()> {
 
 The guard must be kept alive for the duration of your application. When dropped, it gracefully shuts down the telemetry providers.
 
+`init()` also installs a global panic hook. Panics are logged with `tracing::error`
+and structured fields like `source`, `payload_type`, location, thread, and
+backtrace; normal panic unwind/abort behavior is unchanged.
+
+For fatal top-level errors, opt into the same panic path:
+
+```rust,no_run
+use telemetry_batteries::TopLevelResultExt;
+
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    let _guard = telemetry_batteries::init()?;
+    run().await.panic_on_top_level_error();
+    Ok(())
+}
+
+async fn run() -> eyre::Result<()> {
+    eyre::bail!("fatal startup error")
+}
+```
+
 ## Configuration
 
 Configuration is done via environment variables using **presets**:

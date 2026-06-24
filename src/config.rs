@@ -111,28 +111,6 @@ impl PrometheusMode {
     }
 }
 
-/// Eyre error reporting mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum EyreMode {
-    /// Colored multi-line output (default).
-    #[default]
-    Color,
-    /// JSON output.
-    Json,
-}
-
-impl EyreMode {
-    fn from_str(s: &str) -> eyre::Result<Self> {
-        match s.to_lowercase().as_str() {
-            "color" => Ok(Self::Color),
-            "json" => Ok(Self::Json),
-            _ => bail!(
-                "invalid TELEMETRY_EYRE_MODE: expected 'color' or 'json', got '{s}'"
-            ),
-        }
-    }
-}
-
 /// Prometheus-specific configuration.
 #[derive(Debug, Clone, Builder)]
 pub struct PrometheusConfig {
@@ -218,22 +196,6 @@ pub struct MetricsConfig {
     pub statsd: StatsdConfig,
 }
 
-/// Eyre error reporting configuration.
-#[derive(Debug, Clone, Copy, Builder, Default)]
-pub struct EyreConfig {
-    /// Error reporting mode.
-    #[builder(default)]
-    pub mode: EyreMode,
-
-    /// Enable backtrace capture by default.
-    #[builder(default = true)]
-    pub with_default_backtrace: bool,
-
-    /// Enable spantrace capture by default.
-    #[builder(default = true)]
-    pub with_default_spantrace: bool,
-}
-
 /// Main telemetry configuration.
 #[derive(Debug, Clone, Builder, Default)]
 pub struct TelemetryConfig {
@@ -257,10 +219,6 @@ pub struct TelemetryConfig {
     /// Metrics configuration (independent from preset).
     #[builder(default)]
     pub metrics: MetricsConfig,
-
-    /// Eyre error reporting configuration.
-    #[builder(default)]
-    pub eyre: EyreConfig,
 }
 
 impl TelemetryConfig {
@@ -383,17 +341,6 @@ impl TelemetryConfig {
             statsd,
         };
 
-        // --- Eyre configuration ---
-        let eyre = EyreConfig {
-            mode: env::var("TELEMETRY_EYRE_MODE")
-                .ok()
-                .map(|s| EyreMode::from_str(&s))
-                .transpose()?
-                .unwrap_or_default(),
-            with_default_backtrace: true,
-            with_default_spantrace: true,
-        };
-
         Ok(Self {
             preset,
             service_name,
@@ -401,7 +348,6 @@ impl TelemetryConfig {
             datadog_endpoint,
             otlp_endpoint,
             metrics,
-            eyre,
         })
     }
 }

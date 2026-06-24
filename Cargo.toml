@@ -16,7 +16,6 @@ metrics-prometheus = ["dep:metrics-exporter-prometheus"]
 backtrace = "0.3"
 bon = "3"
 chrono = "0.4"
-color-eyre = "0.6"
 dirs = "5"
 eyre = "0.6"
 http = "1"

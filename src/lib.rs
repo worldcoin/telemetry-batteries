@@ -1,18 +1,19 @@
 #![doc = include_str!("../README.md")]
 
 pub mod config;
-pub mod eyre;
 mod guard;
 #[cfg(any(feature = "metrics-prometheus", feature = "metrics-statsd"))]
 mod metrics;
+mod panic_hook;
+mod top_level;
 pub mod tracing;
 
 pub use config::{
-    EyreConfig, EyreMode, LogFormat, MetricsBackend, MetricsConfig,
-    PrometheusConfig, PrometheusMode, StatsdConfig, TelemetryConfig,
-    TelemetryPreset,
+    LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig, PrometheusMode,
+    StatsdConfig, TelemetryConfig, TelemetryPreset,
 };
 pub use guard::TelemetryGuard;
+pub use top_level::TopLevelResultExt;
 
 // Re-export core telemetry crates so downstream consumers use the same
 // version as telemetry-batteries, preventing duplicate-version conflicts.
@@ -60,7 +61,7 @@ pub mod reexports {
 ///     Ok(())
 /// }
 /// ```
-pub fn init() -> ::eyre::Result<TelemetryGuard> {
+pub fn init() -> eyre::Result<TelemetryGuard> {
     let config = TelemetryConfig::from_env()?;
     init_with_config(config)
 }
@@ -81,11 +82,10 @@ pub fn init() -> ::eyre::Result<TelemetryGuard> {
 /// - Backend initialization fails
 pub fn init_with_config(
     config: TelemetryConfig,
-) -> ::eyre::Result<TelemetryGuard> {
-    use ::eyre::bail;
+) -> eyre::Result<TelemetryGuard> {
+    use eyre::bail;
 
-    // Initialize eyre error reporting first
-    eyre::init(&config.eyre)?;
+    panic_hook::install();
 
     let log_format = config.effective_log_format();
     let log_level = TelemetryConfig::log_level_from_env();
@@ -98,7 +98,7 @@ pub fn init_with_config(
         TelemetryPreset::Datadog => {
             let service_name =
                 config.service_name.as_deref().ok_or_else(|| {
-                    ::eyre::eyre!(
+                    eyre::eyre!(
                         "TELEMETRY_SERVICE_NAME is required for Datadog preset"
                     )
                 })?;
@@ -122,7 +122,7 @@ pub fn init_with_config(
     Ok(TelemetryGuard::new(tracing_handle))
 }
 
-fn init_metrics(config: &MetricsConfig) -> ::eyre::Result<()> {
+fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
     match config.backend {
         MetricsBackend::Prometheus => {
             #[cfg(feature = "metrics-prometheus")]
@@ -131,7 +131,7 @@ fn init_metrics(config: &MetricsConfig) -> ::eyre::Result<()> {
             }
             #[cfg(not(feature = "metrics-prometheus"))]
             {
-                ::eyre::bail!("metrics-prometheus feature not compiled in");
+                eyre::bail!("metrics-prometheus feature not compiled in");
             }
         }
         MetricsBackend::Statsd => {
@@ -141,7 +141,7 @@ fn init_metrics(config: &MetricsConfig) -> ::eyre::Result<()> {
             }
             #[cfg(not(feature = "metrics-statsd"))]
             {
-                ::eyre::bail!("metrics-statsd feature not compiled in");
+                eyre::bail!("metrics-statsd feature not compiled in");
             }
         }
         MetricsBackend::None => {
