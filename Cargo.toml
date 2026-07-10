@@ -44,7 +44,7 @@ tracing-opentelemetry-instrumentation-sdk = { version = "0.32", features = [
 ] }
 tracing-serde = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-rand = "0.9"
+rand = "0.10"
 
 [dev-dependencies]
 anyhow = "1.0"
