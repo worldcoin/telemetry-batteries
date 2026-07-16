@@ -9,7 +9,7 @@ repository = "https://github.com/worldcoin/telemetry-batteries"
 
 [features]
 default = ["metrics-prometheus", "metrics-statsd"]
-metrics-statsd = ["dep:metrics-exporter-statsd"]
+metrics-statsd = ["dep:metrics-exporter-statsd", "dep:cadence"]
 metrics-prometheus = ["dep:metrics-exporter-prometheus"]
 
 [dependencies]
@@ -20,6 +20,7 @@ dirs = "5"
 eyre = "0.6"
 http = "1"
 metrics = "0.24"
+cadence = { version = "1", optional = true }
 metrics-exporter-statsd = { version = "0.9", optional = true }
 metrics-exporter-prometheus = { version = "0.18", optional = true }
 opentelemetry = "0.31"

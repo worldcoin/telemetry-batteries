@@ -146,6 +146,21 @@ fn default_prometheus_listen() -> SocketAddr {
 }
 
 /// StatsD-specific configuration.
+///
+/// # Buffer flush pitfall
+///
+/// The underlying [`cadence::BufferedUdpMetricSink`] only flushes its internal
+/// buffer when the buffer fills up or when [`flush()`](cadence::MetricSink::flush)
+/// is called explicitly. At low traffic (e.g. a few requests per day on staging),
+/// a single StatsD line is only ~20-30 bytes, so the default 1024-byte buffer may
+/// never fill. This means metrics can sit in process memory indefinitely — with no
+/// error or log — resulting in **silent metric loss**.
+///
+/// To prevent this, [`flush_interval`](StatsdConfig::flush_interval) spawns a
+/// background thread that periodically flushes the sink. The default interval is
+/// 5 seconds, which is suitable for most workloads. Set it to `None` to disable
+/// periodic flushing (e.g. for high-traffic services where the buffer fills
+/// naturally).
 #[derive(Debug, Clone, Builder)]
 pub struct StatsdConfig {
     /// StatsD server host.
@@ -166,6 +181,17 @@ pub struct StatsdConfig {
     /// Buffer size for the exporter.
     #[builder(default = 1024)]
     pub buffer_size: usize,
+
+    /// Interval at which a background thread flushes the buffered UDP sink.
+    ///
+    /// Defaults to `Some(Duration::from_secs(5))`. Set to `None` to disable
+    /// periodic flushing (the buffer will only flush when it fills up).
+    ///
+    /// Note: the `bon` builder defaults `Option` fields to `None`, so when
+    /// using the builder you must explicitly pass the desired interval via
+    /// `.flush_interval(Duration::from_secs(5))`. The [`Default`] impl
+    /// uses 5 seconds.
+    pub flush_interval: Option<Duration>,
 }
 
 impl Default for StatsdConfig {
@@ -176,6 +202,7 @@ impl Default for StatsdConfig {
             prefix: None,
             queue_size: 5000,
             buffer_size: 1024,
+            flush_interval: Some(Duration::from_secs(5)),
         }
     }
 }
@@ -270,6 +297,7 @@ impl TelemetryConfig {
     /// | `TELEMETRY_STATSD_HOST` | string | `localhost` |
     /// | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
     /// | `TELEMETRY_STATSD_PREFIX` | string | - |
+    /// | `TELEMETRY_STATSD_FLUSH_INTERVAL` | seconds or "none" | `5` |
     pub fn from_env() -> eyre::Result<Self> {
         let service_name = env::var("TELEMETRY_SERVICE_NAME").ok();
 
@@ -329,6 +357,21 @@ impl TelemetryConfig {
             prefix: env::var("TELEMETRY_STATSD_PREFIX").ok(),
             queue_size: 5000,
             buffer_size: 1024,
+            flush_interval: env::var("TELEMETRY_STATSD_FLUSH_INTERVAL")
+                .ok()
+                .map(|s| {
+                    if s == "0" || s.eq_ignore_ascii_case("none") {
+                        Ok(None)
+                    } else {
+                        s.parse::<u64>()
+                            .map(|secs| Some(Duration::from_secs(secs)))
+                            .map_err(|_| {
+                                eyre!("invalid TELEMETRY_STATSD_FLUSH_INTERVAL: expected integer seconds or 'none', got '{s}'")
+                            })
+                    }
+                })
+                .transpose()?
+                .unwrap_or(Some(Duration::from_secs(5))),
         };
 
         let metrics = MetricsConfig {

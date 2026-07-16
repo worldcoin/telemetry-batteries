@@ -76,6 +76,7 @@ Metrics are configured independently from presets:
 | `TELEMETRY_STATSD_HOST` | string | `localhost` |
 | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
 | `TELEMETRY_STATSD_PREFIX` | string | - |
+| `TELEMETRY_STATSD_FLUSH_INTERVAL` | seconds or `none` | `5` |
 
 ### Programmatic Configuration
 

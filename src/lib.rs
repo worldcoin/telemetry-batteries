@@ -117,12 +117,16 @@ pub fn init_with_config(
     };
 
     // Initialize metrics based on backend
-    init_metrics(&config.metrics)?;
+    let guard = TelemetryGuard::new(tracing_handle);
+    let guard = init_metrics(&config.metrics, guard)?;
 
-    Ok(TelemetryGuard::new(tracing_handle))
+    Ok(guard)
 }
 
-fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
+fn init_metrics(
+    config: &MetricsConfig,
+    guard: TelemetryGuard,
+) -> eyre::Result<TelemetryGuard> {
     match config.backend {
         MetricsBackend::Prometheus => {
             #[cfg(feature = "metrics-prometheus")]
@@ -137,7 +141,8 @@ fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
         MetricsBackend::Statsd => {
             #[cfg(feature = "metrics-statsd")]
             {
-                metrics::statsd::init(&config.statsd)?;
+                let flush_handle = metrics::statsd::init(&config.statsd)?;
+                return Ok(guard.with_statsd_flush(flush_handle));
             }
             #[cfg(not(feature = "metrics-statsd"))]
             {
@@ -149,5 +154,5 @@ fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
         }
     }
 
-    Ok(())
+    Ok(guard)
 }
