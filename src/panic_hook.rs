@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(fields["source"], "top_level_error");
         assert_eq!(fields["details"], "boom");
         assert_eq!(fields["payload_type"], type_name::<TopLevelError>());
-        assert_eq!(fields["error_type"], "std::io::error::Error");
+        assert_eq!(fields["error_type"], type_name::<io::Error>());
         assert!(fields["error_debug"].as_str().unwrap().contains("boom"));
         assert!(fields["error_chain"].as_str().unwrap().contains("boom"));
         assert!(fields["backtrace"].is_string());
