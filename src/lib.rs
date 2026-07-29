@@ -32,6 +32,9 @@ pub mod reexports {
     ))]
     pub use ::metrics;
     pub use ::opentelemetry;
+    pub use ::reqwest;
+    #[cfg(feature = "reqwest-middleware")]
+    pub use ::reqwest_middleware;
 }
 
 /// Initialize telemetry from environment variables.

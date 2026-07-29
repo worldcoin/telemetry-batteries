@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Outgoing trace-context propagation for `reqwest::RequestBuilder` and
+  `reqwest-middleware` clients.
+
 ## [0.3.2](https://github.com/worldcoin/telemetry-batteries/compare/v0.3.1...v0.3.2) - 2026-06-24
 
 ### Other
