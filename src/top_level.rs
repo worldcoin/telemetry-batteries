@@ -103,6 +103,6 @@ mod tests {
 
         assert_eq!(error.message(), "top-level failed");
         assert_eq!(error.error_chain(), &["top-level failed".to_owned()]);
-        assert_eq!(error.error_type(), "std::io::error::Error");
+        assert_eq!(error.error_type(), type_name::<io::Error>());
     }
 }

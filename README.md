@@ -160,12 +160,40 @@ let layer = TraceLayer::new().with_make_span(|req| {
 });
 ```
 
+### Outgoing requests
+
+Inject the current span's trace context into an individual `reqwest` request:
+
+```rust,ignore
+use telemetry_batteries::tracing::reqwest::RequestBuilderExt;
+
+let response = reqwest::Client::new()
+    .get("https://example.com")
+    .inject_trace_context()
+    .send()
+    .await?;
+```
+
+For `reqwest-middleware`, enable the `reqwest-middleware` feature and attach
+`TraceContextMiddleware` once to the client:
+
+```rust,ignore
+use telemetry_batteries::tracing::reqwest::middleware::TraceContextMiddleware;
+
+let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
+    .with(TraceContextMiddleware::new())
+    .build();
+```
+
+This integration propagates the current context but does not create client spans.
+
 ## Cargo Features
 
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `metrics-prometheus` | Yes | Prometheus metrics exporter |
 | `metrics-statsd` | Yes | StatsD metrics exporter |
+| `reqwest-middleware` | No | Automatic outgoing trace-context propagation for `reqwest-middleware` clients |
 | `rustls` | Yes | TLS via rustls |
 | `native-tls` | No | TLS via native-tls |
 

@@ -2,6 +2,7 @@ pub(crate) mod datadog;
 pub(crate) mod id_generator;
 pub mod layers;
 pub mod middleware;
+pub mod reqwest;
 pub(crate) mod stdout;
 
 use opentelemetry::Context;

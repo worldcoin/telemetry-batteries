@@ -3,7 +3,7 @@
 use std::{env, net::SocketAddr, time::Duration};
 
 use bon::Builder;
-use eyre::{bail, eyre};
+use eyre::eyre;
 
 /// Telemetry preset for common configurations.
 ///
@@ -29,9 +29,9 @@ impl TelemetryPreset {
             "datadog" => Ok(Self::Datadog),
             "otel" | "otlp" | "opentelemetry" => Ok(Self::Otel),
             "none" => Ok(Self::None),
-            _ => bail!(
+            _ => Err(eyre!(
                 "invalid TELEMETRY_PRESET: expected 'local', 'datadog', 'otel', or 'none', got '{s}'"
-            ),
+            )),
         }
     }
 }
@@ -57,9 +57,9 @@ impl LogFormat {
             "json" => Ok(Self::Json),
             "compact" => Ok(Self::Compact),
             "datadog" | "datadog_json" | "datadogjson" => Ok(Self::DatadogJson),
-            _ => bail!(
+            _ => Err(eyre!(
                 "invalid TELEMETRY_LOG_FORMAT: expected 'pretty', 'json', 'compact', or 'datadog_json', got '{s}'"
-            ),
+            )),
         }
     }
 }
@@ -82,9 +82,9 @@ impl MetricsBackend {
             "prometheus" => Ok(Self::Prometheus),
             "statsd" => Ok(Self::Statsd),
             "none" => Ok(Self::None),
-            _ => bail!(
+            _ => Err(eyre!(
                 "invalid TELEMETRY_METRICS_BACKEND: expected 'prometheus', 'statsd', or 'none', got '{s}'"
-            ),
+            )),
         }
     }
 }
@@ -104,9 +104,9 @@ impl PrometheusMode {
         match s.to_lowercase().as_str() {
             "http" => Ok(Self::Http),
             "push" => Ok(Self::Push),
-            _ => bail!(
+            _ => Err(eyre!(
                 "invalid TELEMETRY_PROMETHEUS_MODE: expected 'http' or 'push', got '{s}'"
-            ),
+            )),
         }
     }
 }
