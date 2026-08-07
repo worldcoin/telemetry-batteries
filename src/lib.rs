@@ -10,7 +10,7 @@ pub mod tracing;
 
 pub use config::{
     LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig, PrometheusMode,
-    StatsdConfig, TelemetryConfig, TelemetryPreset,
+    StatsdConfig, TelemetryConfig,
 };
 pub use guard::TelemetryGuard;
 pub use top_level::TopLevelResultExt;
@@ -80,48 +80,36 @@ pub fn init() -> eyre::Result<TelemetryGuard> {
 /// # Errors
 ///
 /// Returns an error if:
-/// - Required configuration is missing (e.g., `service_name` for Datadog/Otel)
+/// - Required configuration is missing (e.g., `service_name` for Datadog)
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
 pub fn init_with_config(
     config: TelemetryConfig,
 ) -> eyre::Result<TelemetryGuard> {
-    use eyre::bail;
-
     panic_hook::install();
 
     let log_format = config.effective_log_format();
     let log_level = TelemetryConfig::log_level_from_env();
 
-    // Initialize tracing based on preset
-    let tracing_handle = match config.preset {
-        TelemetryPreset::Local => {
-            Some(tracing::stdout::init(log_format, &log_level))
-        }
-        TelemetryPreset::Datadog => {
-            let service_name =
-                config.service_name.as_deref().ok_or_else(|| {
-                    eyre::eyre!("DD_SERVICE is required for Datadog")
-                })?;
+    let tracing_handle = if config.datadog_enabled {
+        let service_name = config
+            .service_name
+            .as_deref()
+            .filter(|name| !name.trim().is_empty())
+            .ok_or_else(|| eyre::eyre!("DD_SERVICE is required for Datadog"))?;
 
-            if config.tracing_enabled {
-                Some(tracing::datadog::init(
-                    config.datadog_endpoint.as_deref(),
-                    service_name,
-                    log_format,
-                    &log_level,
-                ))
-            } else {
-                Some(tracing::stdout::init(log_format, &log_level))
-            }
-        }
-        TelemetryPreset::Otel => {
-            if config.tracing_enabled {
-                bail!("otel preset is not yet implemented");
-            }
+        if config.tracing_enabled {
+            Some(tracing::datadog::init(
+                config.datadog_endpoint.as_deref(),
+                service_name,
+                log_format,
+                &log_level,
+            ))
+        } else {
             Some(tracing::stdout::init(log_format, &log_level))
         }
-        TelemetryPreset::None => None,
+    } else {
+        Some(tracing::stdout::init(log_format, &log_level))
     };
 
     // Initialize metrics based on backend

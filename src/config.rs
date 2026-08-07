@@ -5,23 +5,6 @@ use std::{env, net::SocketAddr, time::Duration};
 use bon::Builder;
 use eyre::eyre;
 
-/// Telemetry preset for common configurations.
-///
-/// Presets configure sensible defaults for logging and span export.
-/// Individual settings can be overridden.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum TelemetryPreset {
-    /// Local development: pretty stdout logs, no span export.
-    #[default]
-    Local,
-    /// Datadog: JSON logs with dd.trace_id/dd.span_id, spans to DD Agent.
-    Datadog,
-    /// OpenTelemetry: JSON logs, spans to OTLP collector (not yet implemented).
-    Otel,
-    /// Disable all telemetry output.
-    None,
-}
-
 /// Log output format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
@@ -185,30 +168,27 @@ pub struct MetricsConfig {
 /// Main telemetry configuration.
 #[derive(Debug, Clone, Builder)]
 pub struct TelemetryConfig {
-    /// Telemetry preset (sets sensible defaults for logging + span export).
-    #[builder(default)]
-    pub preset: TelemetryPreset,
+    /// Whether the Datadog integration is enabled.
+    #[builder(default = false)]
+    pub datadog_enabled: bool,
 
-    /// Service name (required for datadog/otel presets).
+    /// Service name (required when Datadog is enabled).
     pub service_name: Option<String>,
 
-    /// Override log format from preset.
+    /// Override the default log format.
     pub log_format: Option<LogFormat>,
 
-    /// Datadog Agent endpoint (for datadog preset).
+    /// Datadog Agent endpoint.
     /// Defaults to http://localhost:8126.
     pub datadog_endpoint: Option<String>,
 
-    /// OTLP collector endpoint (for otel preset).
-    pub otlp_endpoint: Option<String>,
-
-    /// Whether distributed spans should be exported by the selected preset.
+    /// Whether distributed spans should be exported to Datadog.
     ///
     /// This does not disable log output. Use `RUST_LOG=off` to disable logs.
     #[builder(default = true)]
     pub tracing_enabled: bool,
 
-    /// Metrics configuration (independent from preset).
+    /// Metrics configuration.
     #[builder(default)]
     pub metrics: MetricsConfig,
 }
@@ -216,11 +196,10 @@ pub struct TelemetryConfig {
 impl Default for TelemetryConfig {
     fn default() -> Self {
         Self {
-            preset: TelemetryPreset::default(),
+            datadog_enabled: false,
             service_name: None,
             log_format: None,
             datadog_endpoint: None,
-            otlp_endpoint: None,
             tracing_enabled: true,
             metrics: MetricsConfig::default(),
         }
@@ -228,13 +207,12 @@ impl Default for TelemetryConfig {
 }
 
 impl TelemetryConfig {
-    /// Get the effective log format based on preset and override.
+    /// Get the effective log format based on the enabled backend and override.
     pub fn effective_log_format(&self) -> LogFormat {
-        self.log_format.unwrap_or(match self.preset {
-            TelemetryPreset::Local => LogFormat::Pretty,
-            TelemetryPreset::Datadog => LogFormat::DatadogJson,
-            TelemetryPreset::Otel => LogFormat::Json,
-            TelemetryPreset::None => LogFormat::Json,
+        self.log_format.unwrap_or(if self.datadog_enabled {
+            LogFormat::DatadogJson
+        } else {
+            LogFormat::Pretty
         })
     }
 
@@ -264,7 +242,7 @@ impl TelemetryConfig {
     /// | `RUST_LOG` | EnvFilter syntax | `info` |
     /// | `LOG_FORMAT` | pretty/json/compact/datadog_json | (from backend) |
     ///
-    /// ## Metrics configuration (independent from presets)
+    /// ## Metrics configuration
     ///
     /// | Variable | Values | Default |
     /// |----------|--------|---------|
@@ -297,12 +275,6 @@ impl TelemetryConfig {
             return Err(eyre!("DD_SERVICE is required when DD_ENABLED=true"));
         }
 
-        let preset = if datadog_enabled {
-            TelemetryPreset::Datadog
-        } else {
-            TelemetryPreset::Local
-        };
-
         let tracing_enabled = get("TRACING_ENABLED")
             .map(|value| parse_bool("TRACING_ENABLED", &value))
             .transpose()?
@@ -331,8 +303,6 @@ impl TelemetryConfig {
                 None => None,
             },
         };
-        let otlp_endpoint = get("OTEL_EXPORTER_OTLP_ENDPOINT");
-
         // --- Metrics configuration ---
         let prometheus = PrometheusConfig {
             mode: get("PROMETHEUS_MODE")
@@ -384,11 +354,10 @@ impl TelemetryConfig {
         };
 
         Ok(Self {
-            preset,
+            datadog_enabled,
             service_name,
             log_format,
             datadog_endpoint,
-            otlp_endpoint,
             tracing_enabled,
             metrics,
         })
@@ -424,7 +393,7 @@ mod tests {
     fn defaults_to_local_logging_without_span_export_backend() {
         let config = config(&[]).unwrap();
 
-        assert_eq!(config.preset, TelemetryPreset::Local);
+        assert!(!config.datadog_enabled);
         assert_eq!(config.effective_log_format(), LogFormat::Pretty);
         assert!(config.tracing_enabled);
         assert_eq!(config.metrics.backend, MetricsBackend::None);
@@ -436,7 +405,7 @@ mod tests {
             config(&[("DD_ENABLED", "true"), ("DD_SERVICE", "accounts-api")])
                 .unwrap();
 
-        assert_eq!(config.preset, TelemetryPreset::Datadog);
+        assert!(config.datadog_enabled);
         assert_eq!(config.service_name.as_deref(), Some("accounts-api"));
         assert_eq!(config.effective_log_format(), LogFormat::DatadogJson);
         assert!(config.tracing_enabled);
@@ -466,7 +435,7 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(config.preset, TelemetryPreset::Datadog);
+        assert!(config.datadog_enabled);
         assert!(!config.tracing_enabled);
         assert_eq!(config.effective_log_format(), LogFormat::DatadogJson);
     }
@@ -483,13 +452,14 @@ mod tests {
     #[test]
     fn does_not_read_the_legacy_telemetry_namespace() {
         let config = config(&[
-            ("TELEMETRY_PRESET", "datadog"),
             ("TELEMETRY_SERVICE_NAME", "legacy-service"),
+            ("TELEMETRY_LOG_FORMAT", "json"),
         ])
         .unwrap();
 
-        assert_eq!(config.preset, TelemetryPreset::Local);
+        assert!(!config.datadog_enabled);
         assert_eq!(config.service_name, None);
+        assert_eq!(config.log_format, None);
     }
 
     #[test]

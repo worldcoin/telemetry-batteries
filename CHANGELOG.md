@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PROMETHEUS_*`, and `STATSD_*` for optional settings.
 - `RUST_LOG` is now the sole log-filter environment variable, and `LOG_FORMAT`
   controls formatting.
+- **Breaking:** `TelemetryPreset` has been removed. Programmatic configuration
+  now enables Datadog directly with `TelemetryConfig::datadog_enabled`.
 
 ## [0.3.2](https://github.com/worldcoin/telemetry-batteries/compare/v0.3.1...v0.3.2) - 2026-06-24
 

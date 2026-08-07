@@ -67,7 +67,7 @@ output. Use `RUST_LOG=off` when log output should also be disabled.
 
 ### Metrics Configuration
 
-Metrics are configured independently from presets:
+Metrics are configured independently:
 
 | Variable | Values | Default |
 |----------|--------|---------|
@@ -86,14 +86,14 @@ For more control, use the builder pattern:
 
 ```rust
 use telemetry_batteries::{
-    TelemetryConfig, TelemetryPreset, LogFormat,
+    TelemetryConfig, LogFormat,
     MetricsConfig, MetricsBackend, StatsdConfig,
 };
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let config = TelemetryConfig::builder()
-        .preset(TelemetryPreset::Datadog)
+        .datadog_enabled(true)
         .service_name("my-service".to_owned())
         .log_format(LogFormat::Pretty)
         .tracing_enabled(true)
