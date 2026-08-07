@@ -40,7 +40,7 @@ pub mod reexports {
 /// Initialize telemetry from environment variables.
 ///
 /// This is the main entry point for most applications. Configuration is loaded
-/// from `TELEMETRY_*` environment variables.
+/// from environment variables.
 ///
 /// Returns a [`TelemetryGuard`] that must be kept alive for the duration of
 /// the application. When dropped, it gracefully shuts down the tracing provider.
@@ -48,7 +48,7 @@ pub mod reexports {
 /// # Errors
 ///
 /// Returns an error if:
-/// - Required configuration is missing (e.g., `TELEMETRY_SERVICE_NAME` for Datadog)
+/// - Required configuration is missing (e.g., `DD_SERVICE` for Datadog)
 /// - Configuration values are invalid
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
@@ -101,20 +101,25 @@ pub fn init_with_config(
         TelemetryPreset::Datadog => {
             let service_name =
                 config.service_name.as_deref().ok_or_else(|| {
-                    eyre::eyre!(
-                        "TELEMETRY_SERVICE_NAME is required for Datadog preset"
-                    )
+                    eyre::eyre!("DD_SERVICE is required for Datadog")
                 })?;
 
-            Some(tracing::datadog::init(
-                config.datadog_endpoint.as_deref(),
-                service_name,
-                log_format,
-                &log_level,
-            ))
+            if config.tracing_enabled {
+                Some(tracing::datadog::init(
+                    config.datadog_endpoint.as_deref(),
+                    service_name,
+                    log_format,
+                    &log_level,
+                ))
+            } else {
+                Some(tracing::stdout::init(log_format, &log_level))
+            }
         }
         TelemetryPreset::Otel => {
-            bail!("otel preset is not yet implemented");
+            if config.tracing_enabled {
+                bail!("otel preset is not yet implemented");
+            }
+            Some(tracing::stdout::init(log_format, &log_level))
         }
         TelemetryPreset::None => None,
     };
