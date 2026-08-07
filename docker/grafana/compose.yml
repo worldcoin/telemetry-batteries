@@ -7,10 +7,10 @@ services:
       - ../..:/app
       - cargo-cache:/usr/local/cargo/registry
     environment:
-      - TELEMETRY_PRESET=datadog
-      - TELEMETRY_SERVICE_NAME=app
-      - TELEMETRY_METRICS_BACKEND=prometheus
-      - TELEMETRY_PROMETHEUS_LISTEN=0.0.0.0:9091
+      - DD_ENABLED=true
+      - DD_SERVICE=app
+      - METRICS_BACKEND=prometheus
+      - PROMETHEUS_LISTEN=0.0.0.0:9091
       - RUST_LOG=info
     command: cargo run --example basic --features metrics-prometheus
     labels:

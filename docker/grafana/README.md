@@ -20,9 +20,8 @@ Local Grafana stack for testing metrics and logs.
 
 2. Run your app with Prometheus metrics (use port 9091 to avoid conflict):
    ```bash
-   TELEMETRY_PRESET=local \
-   TELEMETRY_METRICS_BACKEND=prometheus \
-   TELEMETRY_PROMETHEUS_LISTEN=0.0.0.0:9091 \
+   METRICS_BACKEND=prometheus \
+   PROMETHEUS_LISTEN=0.0.0.0:9091 \
    cargo run --example basic --features metrics-prometheus
    ```
 

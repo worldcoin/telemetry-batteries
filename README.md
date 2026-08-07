@@ -41,26 +41,29 @@ async fn run() -> eyre::Result<()> {
 
 ## Configuration
 
-Configuration is done via environment variables using **presets**:
+Configuration is done through environment variables for each telemetry
+backend. Local pretty logs are enabled by default. Datadog distributed tracing
+requires only a service name and an enable switch:
 
-### Presets
-
-| Preset | Log Format | Log Output | Span Export | Use Case |
-|--------|------------|------------|-------------|----------|
-| `local` | pretty | stdout | none | Local development |
-| `datadog` | datadog_json | stdout | Datadog Agent | Production with Datadog |
-| `none` | - | none | none | Disable telemetry |
+```bash
+DD_SERVICE=my-service DD_ENABLED=true cargo run
+```
 
 ### Environment Variables
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `TELEMETRY_PRESET` | `local`, `datadog`, `none` | `local` |
-| `TELEMETRY_SERVICE_NAME` | string | required for datadog |
-| `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
-| `TELEMETRY_LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | (from preset) |
-| `TELEMETRY_DATADOG_ENDPOINT` | url | `http://localhost:8126` |
-| `TELEMETRY_EYRE_MODE` | `color`, `json` | `color` |
+| `DD_ENABLED` | `true`, `false` | `false` |
+| `DD_SERVICE` | string | required when `DD_ENABLED=true` |
+| `DD_TRACE_AGENT_URL` | URL | derived from `DD_AGENT_HOST` |
+| `DD_AGENT_HOST` | hostname or IP | `localhost` |
+| `DD_TRACE_AGENT_PORT` | port | `8126` |
+| `TRACING_ENABLED` | `true`, `false` | `true` |
+| `RUST_LOG` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
+| `LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | `pretty`, or `datadog_json` with Datadog |
+
+`TRACING_ENABLED=false` disables distributed span export without disabling log
+output. Use `RUST_LOG=off` when log output should also be disabled.
 
 ### Metrics Configuration
 
@@ -68,14 +71,14 @@ Metrics are configured independently from presets:
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `TELEMETRY_METRICS_BACKEND` | `prometheus`, `statsd`, `none` | `none` |
-| `TELEMETRY_PROMETHEUS_MODE` | `http`, `push` | `http` |
-| `TELEMETRY_PROMETHEUS_LISTEN` | `addr:port` | `0.0.0.0:9090` |
-| `TELEMETRY_PROMETHEUS_ENDPOINT` | url | - |
-| `TELEMETRY_PROMETHEUS_INTERVAL` | seconds | `10` |
-| `TELEMETRY_STATSD_HOST` | string | `localhost` |
-| `TELEMETRY_STATSD_PORT` | u16 | `8125` |
-| `TELEMETRY_STATSD_PREFIX` | string | - |
+| `METRICS_BACKEND` | `prometheus`, `statsd`, `none` | `none` |
+| `PROMETHEUS_MODE` | `http`, `push` | `http` |
+| `PROMETHEUS_LISTEN` | `addr:port` | `0.0.0.0:9090` |
+| `PROMETHEUS_ENDPOINT` | URL | - |
+| `PROMETHEUS_INTERVAL` | seconds | `10` |
+| `STATSD_HOST` | string | `localhost` |
+| `STATSD_PORT` | u16 | `8125` |
+| `STATSD_PREFIX` | string | - |
 
 ### Programmatic Configuration
 
@@ -92,7 +95,8 @@ async fn main() -> eyre::Result<()> {
     let config = TelemetryConfig::builder()
         .preset(TelemetryPreset::Datadog)
         .service_name("my-service".to_owned())
-        .log_format(LogFormat::Pretty)  // Override preset's log format
+        .log_format(LogFormat::Pretty)
+        .tracing_enabled(true)
         .metrics(MetricsConfig::builder()
             .backend(MetricsBackend::Statsd)
             .statsd(StatsdConfig::builder()
@@ -113,17 +117,20 @@ async fn main() -> eyre::Result<()> {
 ## Usage Examples
 
 ```bash
-# Local development - pretty logs, no tracing
+# Local development - pretty logs, no span export
 cargo run
 
 # Datadog production
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service cargo run
+DD_ENABLED=true DD_SERVICE=my-service cargo run
 
 # Datadog with pretty logs for debugging
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service TELEMETRY_LOG_FORMAT=pretty cargo run
+DD_ENABLED=true DD_SERVICE=my-service LOG_FORMAT=pretty cargo run
+
+# Datadog-formatted logs without distributed span export
+DD_ENABLED=true DD_SERVICE=my-service TRACING_ENABLED=false cargo run
 
 # With Prometheus metrics
-TELEMETRY_METRICS_BACKEND=prometheus cargo run
+METRICS_BACKEND=prometheus cargo run
 ```
 
 ## Distributed Tracing
@@ -207,14 +214,14 @@ See the examples directory:
 Run the examples:
 
 ```bash
-# Basic example with local preset
+# Basic example with local logging
 cargo run --example basic
 
 # Basic example with Datadog
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run --example basic
+DD_ENABLED=true DD_SERVICE=test cargo run --example basic
 
 # Axum server with trace propagation
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run --example axum_tracing
+DD_ENABLED=true DD_SERVICE=my-api cargo run --example axum_tracing
 ```
 
 ## License
