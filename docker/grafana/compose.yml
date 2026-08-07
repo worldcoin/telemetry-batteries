@@ -7,10 +7,10 @@ services:
       - ../..:/app
       - cargo-cache:/usr/local/cargo/registry
     environment:
-      - DD_ENABLED=true
       - DD_SERVICE=app
-      - METRICS_BACKEND=prometheus
-      - PROMETHEUS_LISTEN=0.0.0.0:9091
+      - OTEL_METRICS_EXPORTER=prometheus
+      - OTEL_EXPORTER_PROMETHEUS_HOST=0.0.0.0
+      - OTEL_EXPORTER_PROMETHEUS_PORT=9091
       - RUST_LOG=info
     command: cargo run --example basic --features metrics-prometheus
     labels:

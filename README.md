@@ -43,27 +43,28 @@ async fn run() -> eyre::Result<()> {
 
 Configuration is done through environment variables for each telemetry
 backend. Local pretty logs are enabled by default. Datadog distributed tracing
-requires only a service name and an enable switch:
+is enabled automatically when a service name is present:
 
 ```bash
-DD_SERVICE=my-service DD_ENABLED=true cargo run
+DD_SERVICE=my-service cargo run
 ```
 
 ### Environment Variables
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `DD_ENABLED` | `true`, `false` | `false` |
-| `DD_SERVICE` | string | required when `DD_ENABLED=true` |
+| `DD_SERVICE` | string | enables Datadog when set |
 | `DD_TRACE_AGENT_URL` | URL | derived from `DD_AGENT_HOST` |
 | `DD_AGENT_HOST` | hostname or IP | `localhost` |
 | `DD_TRACE_AGENT_PORT` | port | `8126` |
-| `TRACING_ENABLED` | `true`, `false` | `true` |
+| `DD_TRACE_ENABLED` | `true`, `false` | `true` |
+| `OTEL_TRACES_EXPORTER` | `none` | - |
 | `RUST_LOG` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
 | `LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | `pretty`, or `datadog_json` with Datadog |
 
-`TRACING_ENABLED=false` disables distributed span export without disabling log
-output. Use `RUST_LOG=off` when log output should also be disabled.
+`DD_TRACE_ENABLED=false` or `OTEL_TRACES_EXPORTER=none` disables distributed
+span export without disabling log output. Datadog configuration takes
+precedence when both are set. Use `RUST_LOG=off` to disable logs.
 
 ### Metrics Configuration
 
@@ -71,14 +72,16 @@ Metrics are configured independently:
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `METRICS_BACKEND` | `prometheus`, `statsd`, `none` | `none` |
-| `PROMETHEUS_MODE` | `http`, `push` | `http` |
-| `PROMETHEUS_LISTEN` | `addr:port` | `0.0.0.0:9090` |
-| `PROMETHEUS_ENDPOINT` | URL | - |
-| `PROMETHEUS_INTERVAL` | seconds | `10` |
-| `STATSD_HOST` | string | `localhost` |
-| `STATSD_PORT` | u16 | `8125` |
-| `STATSD_PREFIX` | string | - |
+| `OTEL_METRICS_EXPORTER` | `prometheus`, `none` | `none` |
+| `OTEL_EXPORTER_PROMETHEUS_HOST` | IP address or `localhost` | `localhost` |
+| `OTEL_EXPORTER_PROMETHEUS_PORT` | port | `9464` |
+| `DD_DOGSTATSD_URL` | `udp://host[:port]` | - |
+| `DD_DOGSTATSD_PORT` | port | - |
+
+Prometheus is enabled by `OTEL_METRICS_EXPORTER=prometheus`. StatsD is enabled
+when `DD_DOGSTATSD_URL` or `DD_DOGSTATSD_PORT` is present and uses
+`DD_AGENT_HOST` when no URL is provided. `OTEL_METRICS_EXPORTER=none` explicitly
+disables metrics.
 
 ### Programmatic Configuration
 
@@ -93,7 +96,6 @@ use telemetry_batteries::{
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let config = TelemetryConfig::builder()
-        .datadog_enabled(true)
         .service_name("my-service".to_owned())
         .log_format(LogFormat::Pretty)
         .tracing_enabled(true)
@@ -121,16 +123,19 @@ async fn main() -> eyre::Result<()> {
 cargo run
 
 # Datadog production
-DD_ENABLED=true DD_SERVICE=my-service cargo run
+DD_SERVICE=my-service cargo run
 
 # Datadog with pretty logs for debugging
-DD_ENABLED=true DD_SERVICE=my-service LOG_FORMAT=pretty cargo run
+DD_SERVICE=my-service LOG_FORMAT=pretty cargo run
 
 # Datadog-formatted logs without distributed span export
-DD_ENABLED=true DD_SERVICE=my-service TRACING_ENABLED=false cargo run
+DD_SERVICE=my-service DD_TRACE_ENABLED=false cargo run
 
 # With Prometheus metrics
-METRICS_BACKEND=prometheus cargo run
+OTEL_METRICS_EXPORTER=prometheus cargo run
+
+# With DogStatsD metrics through the Datadog Agent
+DD_AGENT_HOST=127.0.0.1 DD_DOGSTATSD_PORT=8125 cargo run
 ```
 
 ## Distributed Tracing
@@ -218,10 +223,10 @@ Run the examples:
 cargo run --example basic
 
 # Basic example with Datadog
-DD_ENABLED=true DD_SERVICE=test cargo run --example basic
+DD_SERVICE=test cargo run --example basic
 
 # Axum server with trace propagation
-DD_ENABLED=true DD_SERVICE=my-api cargo run --example axum_tracing
+DD_SERVICE=my-api cargo run --example axum_tracing
 ```
 
 ## License

@@ -11,19 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Outgoing trace-context propagation for `reqwest::RequestBuilder` and
   `reqwest-middleware` clients.
-- `TRACING_ENABLED` can disable distributed span export independently of log
-  output.
+- Datadog and OpenTelemetry-native variables configure tracing and metrics
+  without library-specific enable or backend switches.
 
 ### Changed
 
 - **Breaking:** environment configuration no longer uses the `TELEMETRY_*`
-  namespace. Enable Datadog with only `DD_ENABLED=true` and `DD_SERVICE`; use
-  provider-specific names such as `DD_AGENT_HOST`, `METRICS_BACKEND`,
-  `PROMETHEUS_*`, and `STATSD_*` for optional settings.
+  namespace. `DD_SERVICE` enables Datadog tracing, `DD_TRACE_ENABLED` controls
+  span export, `OTEL_METRICS_EXPORTER=prometheus` enables Prometheus, and
+  `DD_DOGSTATSD_URL` or `DD_DOGSTATSD_PORT` enables StatsD.
 - `RUST_LOG` is now the sole log-filter environment variable, and `LOG_FORMAT`
   controls formatting.
-- **Breaking:** `TelemetryPreset` has been removed. Programmatic configuration
-  now enables Datadog directly with `TelemetryConfig::datadog_enabled`.
+- **Breaking:** `TelemetryPreset` has been removed. Setting `service_name` now
+  enables Datadog directly in programmatic configuration.
 
 ## [0.3.2](https://github.com/worldcoin/telemetry-batteries/compare/v0.3.1...v0.3.2) - 2026-06-24
 

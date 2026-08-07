@@ -28,7 +28,6 @@ struct TraceIds {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn datadog_integration() -> eyre::Result<()> {
     let _guard = init_with_config(TelemetryConfig {
-        datadog_enabled: true,
         service_name: Some("datadog-integration-test".to_owned()),
         log_format: Some(LogFormat::DatadogJson),
         ..TelemetryConfig::default()

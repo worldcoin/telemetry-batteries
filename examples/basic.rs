@@ -10,14 +10,12 @@
 //!
 //! Run with Datadog:
 //! ```bash
-//! DD_ENABLED=true \
 //! DD_SERVICE=my-service \
 //! cargo run --example basic
 //! ```
 //!
 //! Run with Datadog but pretty logs for debugging:
 //! ```bash
-//! DD_ENABLED=true \
 //! DD_SERVICE=my-service \
 //! LOG_FORMAT=pretty \
 //! cargo run --example basic

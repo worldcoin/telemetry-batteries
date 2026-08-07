@@ -48,7 +48,6 @@ pub mod reexports {
 /// # Errors
 ///
 /// Returns an error if:
-/// - Required configuration is missing (e.g., `DD_SERVICE` for Datadog)
 /// - Configuration values are invalid
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
@@ -80,7 +79,6 @@ pub fn init() -> eyre::Result<TelemetryGuard> {
 /// # Errors
 ///
 /// Returns an error if:
-/// - Required configuration is missing (e.g., `service_name` for Datadog)
 /// - A requested feature is not compiled in
 /// - Backend initialization fails
 pub fn init_with_config(
@@ -91,13 +89,11 @@ pub fn init_with_config(
     let log_format = config.effective_log_format();
     let log_level = TelemetryConfig::log_level_from_env();
 
-    let tracing_handle = if config.datadog_enabled {
-        let service_name = config
-            .service_name
-            .as_deref()
-            .filter(|name| !name.trim().is_empty())
-            .ok_or_else(|| eyre::eyre!("DD_SERVICE is required for Datadog"))?;
-
+    let tracing_handle = if let Some(service_name) = config
+        .service_name
+        .as_deref()
+        .filter(|name| !name.trim().is_empty())
+    {
         if config.tracing_enabled {
             Some(tracing::datadog::init(
                 config.datadog_endpoint.as_deref(),
