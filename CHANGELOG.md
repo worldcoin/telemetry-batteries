@@ -17,9 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Breaking:** environment configuration no longer uses the `TELEMETRY_*`
-  namespace. `DD_SERVICE` enables Datadog tracing, `DD_TRACE_ENABLED` controls
-  span export, `OTEL_METRICS_EXPORTER=prometheus` enables Prometheus, and
-  `DD_DOGSTATSD_URL` or `DD_DOGSTATSD_PORT` enables StatsD.
+  namespace. `DD_SERVICE` enables Datadog tracing, while standard
+  `OTEL_TRACES_EXPORTER` and `OTEL_METRICS_EXPORTER` settings select the
+  supported exporters. StatsD configuration remains programmatic because it is
+  not an OpenTelemetry-defined exporter value.
 - `RUST_LOG` is now the sole log-filter environment variable, and `LOG_FORMAT`
   controls formatting.
 - **Breaking:** `TelemetryPreset` has been removed. Setting `service_name` now

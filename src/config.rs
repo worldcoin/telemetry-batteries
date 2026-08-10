@@ -242,8 +242,6 @@ impl TelemetryConfig {
     /// | `OTEL_METRICS_EXPORTER` | prometheus/none | `none` |
     /// | `OTEL_EXPORTER_PROMETHEUS_HOST` | hostname/IP | `localhost` |
     /// | `OTEL_EXPORTER_PROMETHEUS_PORT` | port | `9464` |
-    /// | `DD_DOGSTATSD_URL` | udp URL | - |
-    /// | `DD_DOGSTATSD_PORT` | port | - |
     pub fn from_env() -> eyre::Result<Self> {
         Self::from_env_with(|name| env::var(name).ok())
     }
@@ -253,17 +251,17 @@ impl TelemetryConfig {
     ) -> eyre::Result<Self> {
         let service_name = get("DD_SERVICE")
             .filter(|service_name| !service_name.trim().is_empty());
-        let tracing_enabled = match get("DD_TRACE_ENABLED") {
-            Some(value) => parse_bool("DD_TRACE_ENABLED", &value)?,
-            None => match get("OTEL_TRACES_EXPORTER") {
-                Some(value) if value.eq_ignore_ascii_case("none") => false,
-                Some(value) => {
-                    return Err(eyre!(
-                        "unsupported OTEL_TRACES_EXPORTER: only 'none' is supported, got '{value}'"
-                    ));
-                }
-                None => true,
-            },
+        let tracing_enabled = match non_empty(get("OTEL_TRACES_EXPORTER")) {
+            Some(value) if value.eq_ignore_ascii_case("none") => false,
+            Some(value) => {
+                return Err(eyre!(
+                    "unsupported OTEL_TRACES_EXPORTER: only 'none' is supported, got '{value}'"
+                ));
+            }
+            None => get("DD_TRACE_ENABLED")
+                .map(|value| parse_bool("DD_TRACE_ENABLED", &value))
+                .transpose()?
+                .unwrap_or(true),
         };
 
         let log_format = get("LOG_FORMAT")
@@ -290,30 +288,15 @@ impl TelemetryConfig {
             },
         };
         // --- Metrics configuration ---
-        let metrics_backend = get("OTEL_METRICS_EXPORTER")
+        let backend = non_empty(get("OTEL_METRICS_EXPORTER"))
             .map(|value| MetricsBackend::from_otel_exporter(&value))
-            .transpose()?;
-
-        let dogstatsd_url = get("DD_DOGSTATSD_URL");
-        let dogstatsd_port = get("DD_DOGSTATSD_PORT");
-        let dogstatsd_configured =
-            dogstatsd_url.is_some() || dogstatsd_port.is_some();
-
-        let backend = match metrics_backend {
-            Some(MetricsBackend::Prometheus) if dogstatsd_configured => {
-                return Err(eyre!(
-                    "conflicting metrics exporters: OTEL_METRICS_EXPORTER=prometheus and DogStatsD configuration are both set"
-                ));
-            }
-            Some(backend) => backend,
-            None if dogstatsd_configured => MetricsBackend::Statsd,
-            None => MetricsBackend::None,
-        };
+            .transpose()?
+            .unwrap_or_default();
 
         let prometheus = if backend == MetricsBackend::Prometheus {
-            let host = get("OTEL_EXPORTER_PROMETHEUS_HOST")
+            let host = non_empty(get("OTEL_EXPORTER_PROMETHEUS_HOST"))
                 .unwrap_or_else(|| "localhost".to_owned());
-            let port = get("OTEL_EXPORTER_PROMETHEUS_PORT")
+            let port = non_empty(get("OTEL_EXPORTER_PROMETHEUS_PORT"))
                 .map(|value| {
                     parse_port("OTEL_EXPORTER_PROMETHEUS_PORT", &value)
                 })
@@ -329,34 +312,10 @@ impl TelemetryConfig {
             PrometheusConfig::default()
         };
 
-        let statsd = if backend == MetricsBackend::Statsd {
-            let (host, port) = match dogstatsd_url {
-                Some(url) => parse_dogstatsd_url(&url)?,
-                None => {
-                    let host = get("DD_AGENT_HOST")
-                        .unwrap_or_else(|| "localhost".to_owned());
-                    let port = dogstatsd_port
-                        .map(|value| parse_port("DD_DOGSTATSD_PORT", &value))
-                        .transpose()?
-                        .unwrap_or(8125);
-                    (host, port)
-                }
-            };
-            StatsdConfig {
-                host,
-                port,
-                prefix: None,
-                queue_size: 5000,
-                buffer_size: 1024,
-            }
-        } else {
-            StatsdConfig::default()
-        };
-
         let metrics = MetricsConfig {
             backend,
             prometheus,
-            statsd,
+            statsd: StatsdConfig::default(),
         };
 
         Ok(Self {
@@ -367,6 +326,10 @@ impl TelemetryConfig {
             metrics,
         })
     }
+}
+
+fn non_empty(value: Option<String>) -> Option<String> {
+    value.filter(|value| !value.is_empty())
 }
 
 fn parse_port(name: &str, value: &str) -> eyre::Result<u16> {
@@ -387,22 +350,6 @@ fn parse_prometheus_listen(host: &str, port: u16) -> eyre::Result<SocketAddr> {
     };
 
     Ok(SocketAddr::new(ip, port))
-}
-
-fn parse_dogstatsd_url(value: &str) -> eyre::Result<(String, u16)> {
-    let authority = value.strip_prefix("udp://").ok_or_else(|| {
-        eyre!(
-            "unsupported DD_DOGSTATSD_URL: expected udp://host[:port], got '{value}'"
-        )
-    })?;
-    let authority = authority.parse::<http::uri::Authority>().map_err(|_| {
-        eyre!("invalid DD_DOGSTATSD_URL: expected udp://host[:port], got '{value}'")
-    })?;
-
-    Ok((
-        authority.host().to_owned(),
-        authority.port_u16().unwrap_or(8125),
-    ))
 }
 
 fn parse_bool(name: &str, value: &str) -> eyre::Result<bool> {
@@ -484,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn datadog_trace_flag_takes_precedence_over_opentelemetry() {
+    fn opentelemetry_trace_exporter_takes_precedence_over_datadog() {
         let config = config(&[
             ("DD_SERVICE", "accounts-api"),
             ("DD_TRACE_ENABLED", "true"),
@@ -492,7 +439,7 @@ mod tests {
         ])
         .unwrap();
 
-        assert!(config.tracing_enabled);
+        assert!(!config.tracing_enabled);
     }
 
     #[test]
@@ -553,6 +500,29 @@ mod tests {
     }
 
     #[test]
+    fn treats_empty_opentelemetry_values_as_unset() {
+        let configured = config(&[
+            ("DD_SERVICE", "accounts-api"),
+            ("DD_TRACE_ENABLED", "false"),
+            ("OTEL_TRACES_EXPORTER", ""),
+            ("OTEL_METRICS_EXPORTER", "prometheus"),
+            ("OTEL_EXPORTER_PROMETHEUS_HOST", ""),
+            ("OTEL_EXPORTER_PROMETHEUS_PORT", ""),
+        ])
+        .unwrap();
+
+        assert!(!configured.tracing_enabled);
+        assert_eq!(configured.metrics.backend, MetricsBackend::Prometheus);
+        assert_eq!(
+            configured.metrics.prometheus.listen,
+            "127.0.0.1:9464".parse().unwrap()
+        );
+
+        let config = config(&[("OTEL_METRICS_EXPORTER", "")]).unwrap();
+        assert_eq!(config.metrics.backend, MetricsBackend::None);
+    }
+
+    #[test]
     fn rejects_unsupported_opentelemetry_exporters() {
         let error = config(&[("OTEL_METRICS_EXPORTER", "otlp")]).unwrap_err();
 
@@ -563,33 +533,11 @@ mod tests {
     }
 
     #[test]
-    fn configures_statsd_from_datadog_url() {
-        let config =
-            config(&[("DD_DOGSTATSD_URL", "udp://metrics:18125")]).unwrap();
-
-        assert_eq!(config.metrics.backend, MetricsBackend::Statsd);
-        assert_eq!(config.metrics.statsd.host, "metrics");
-        assert_eq!(config.metrics.statsd.port, 18125);
-    }
-
-    #[test]
-    fn configures_statsd_from_datadog_host_and_port() {
+    fn datadog_variables_do_not_select_a_metrics_exporter() {
         let config = config(&[
             ("DD_AGENT_HOST", "10.20.30.40"),
+            ("DD_DOGSTATSD_URL", "udp://metrics:18125"),
             ("DD_DOGSTATSD_PORT", "18125"),
-        ])
-        .unwrap();
-
-        assert_eq!(config.metrics.backend, MetricsBackend::Statsd);
-        assert_eq!(config.metrics.statsd.host, "10.20.30.40");
-        assert_eq!(config.metrics.statsd.port, 18125);
-    }
-
-    #[test]
-    fn explicit_none_disables_dogstatsd_discovery() {
-        let config = config(&[
-            ("OTEL_METRICS_EXPORTER", "none"),
-            ("DD_DOGSTATSD_PORT", "8125"),
         ])
         .unwrap();
 
@@ -597,17 +545,10 @@ mod tests {
     }
 
     #[test]
-    fn rejects_conflicting_metrics_exporters() {
-        let error = config(&[
-            ("OTEL_METRICS_EXPORTER", "prometheus"),
-            ("DD_DOGSTATSD_PORT", "8125"),
-        ])
-        .unwrap_err();
+    fn explicit_none_disables_metrics() {
+        let config = config(&[("OTEL_METRICS_EXPORTER", "none")]).unwrap();
 
-        assert_eq!(
-            error.to_string(),
-            "conflicting metrics exporters: OTEL_METRICS_EXPORTER=prometheus and DogStatsD configuration are both set"
-        );
+        assert_eq!(config.metrics.backend, MetricsBackend::None);
     }
 
     #[test]
