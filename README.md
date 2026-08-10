@@ -79,16 +79,22 @@ Metrics are configured independently:
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `OTEL_METRICS_EXPORTER` | `prometheus`, `none` | `none` |
+| `OTEL_METRICS_EXPORTER` | `prometheus`, `statsd`, `none` | `none` |
 | `OTEL_EXPORTER_PROMETHEUS_HOST` | IP address or `localhost` | `localhost` |
 | `OTEL_EXPORTER_PROMETHEUS_PORT` | port | `9464` |
+| `DD_DOGSTATSD_URL` | `udp://host[:port]` | derived from `DD_AGENT_HOST` |
+| `DD_DOGSTATSD_PORT` | port | `8125` |
 
 Prometheus is enabled by `OTEL_METRICS_EXPORTER=prometheus`, while
 `OTEL_METRICS_EXPORTER=none` explicitly disables metrics. This crate does not
 currently provide the specification's OTLP or console metrics exporters, so it
-defaults to `none` instead of the specification's `otlp`. StatsD remains
-available through programmatic configuration; it is not exposed as an
-`OTEL_METRICS_EXPORTER` value because StatsD is not defined by the specification.
+defaults to `none` instead of the specification's `otlp`.
+
+StatsD is enabled with `OTEL_METRICS_EXPORTER=statsd`. The `statsd` value is a
+documented extension because StatsD is not defined by the OpenTelemetry
+specification. `DD_DOGSTATSD_URL` configures its UDP endpoint; otherwise it uses
+`DD_AGENT_HOST` and `DD_DOGSTATSD_PORT`, defaulting to `localhost:8125`.
+Datadog endpoint variables alone do not select the metrics exporter.
 
 ### Programmatic Configuration
 
@@ -140,6 +146,12 @@ DD_SERVICE=my-service OTEL_TRACES_EXPORTER=none cargo run
 
 # With Prometheus metrics
 OTEL_METRICS_EXPORTER=prometheus cargo run
+
+# With DogStatsD metrics through the Datadog Agent
+OTEL_METRICS_EXPORTER=statsd \
+DD_AGENT_HOST=127.0.0.1 \
+DD_DOGSTATSD_PORT=8125 \
+cargo run
 ```
 
 ## Distributed Tracing

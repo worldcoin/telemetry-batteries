@@ -53,9 +53,10 @@ impl MetricsBackend {
     fn from_otel_exporter(s: &str) -> eyre::Result<Self> {
         match s.to_lowercase().as_str() {
             "prometheus" => Ok(Self::Prometheus),
+            "statsd" => Ok(Self::Statsd),
             "none" => Ok(Self::None),
             _ => Err(eyre!(
-                "unsupported OTEL_METRICS_EXPORTER: expected 'prometheus' or 'none', got '{s}'"
+                "unsupported OTEL_METRICS_EXPORTER: expected 'prometheus', 'statsd', or 'none', got '{s}'"
             )),
         }
     }
@@ -239,9 +240,11 @@ impl TelemetryConfig {
     ///
     /// | Variable | Values | Default |
     /// |----------|--------|---------|
-    /// | `OTEL_METRICS_EXPORTER` | prometheus/none | `none` |
+    /// | `OTEL_METRICS_EXPORTER` | prometheus/statsd/none | `none` |
     /// | `OTEL_EXPORTER_PROMETHEUS_HOST` | hostname/IP | `localhost` |
     /// | `OTEL_EXPORTER_PROMETHEUS_PORT` | port | `9464` |
+    /// | `DD_DOGSTATSD_URL` | udp URL | derived from `DD_AGENT_HOST` |
+    /// | `DD_DOGSTATSD_PORT` | port | `8125` |
     pub fn from_env() -> eyre::Result<Self> {
         Self::from_env_with(|name| env::var(name).ok())
     }
@@ -312,10 +315,34 @@ impl TelemetryConfig {
             PrometheusConfig::default()
         };
 
+        let statsd = if backend == MetricsBackend::Statsd {
+            let (host, port) = match non_empty(get("DD_DOGSTATSD_URL")) {
+                Some(url) => parse_dogstatsd_url(&url)?,
+                None => {
+                    let host = non_empty(get("DD_AGENT_HOST"))
+                        .unwrap_or_else(|| "localhost".to_owned());
+                    let port = non_empty(get("DD_DOGSTATSD_PORT"))
+                        .map(|value| parse_port("DD_DOGSTATSD_PORT", &value))
+                        .transpose()?
+                        .unwrap_or(8125);
+                    (host, port)
+                }
+            };
+            StatsdConfig {
+                host,
+                port,
+                prefix: None,
+                queue_size: 5000,
+                buffer_size: 1024,
+            }
+        } else {
+            StatsdConfig::default()
+        };
+
         let metrics = MetricsConfig {
             backend,
             prometheus,
-            statsd: StatsdConfig::default(),
+            statsd,
         };
 
         Ok(Self {
@@ -350,6 +377,22 @@ fn parse_prometheus_listen(host: &str, port: u16) -> eyre::Result<SocketAddr> {
     };
 
     Ok(SocketAddr::new(ip, port))
+}
+
+fn parse_dogstatsd_url(value: &str) -> eyre::Result<(String, u16)> {
+    let authority = value.strip_prefix("udp://").ok_or_else(|| {
+        eyre!(
+            "unsupported DD_DOGSTATSD_URL: expected udp://host[:port], got '{value}'"
+        )
+    })?;
+    let authority = authority.parse::<http::uri::Authority>().map_err(|_| {
+        eyre!("invalid DD_DOGSTATSD_URL: expected udp://host[:port], got '{value}'")
+    })?;
+
+    Ok((
+        authority.host().to_owned(),
+        authority.port_u16().unwrap_or(8125),
+    ))
 }
 
 fn parse_bool(name: &str, value: &str) -> eyre::Result<bool> {
@@ -528,8 +571,50 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "unsupported OTEL_METRICS_EXPORTER: expected 'prometheus' or 'none', got 'otlp'"
+            "unsupported OTEL_METRICS_EXPORTER: expected 'prometheus', 'statsd', or 'none', got 'otlp'"
         );
+    }
+
+    #[test]
+    fn configures_statsd_from_datadog_url() {
+        let config = config(&[
+            ("OTEL_METRICS_EXPORTER", "statsd"),
+            ("DD_DOGSTATSD_URL", "udp://metrics:18125"),
+        ])
+        .unwrap();
+
+        assert_eq!(config.metrics.backend, MetricsBackend::Statsd);
+        assert_eq!(config.metrics.statsd.host, "metrics");
+        assert_eq!(config.metrics.statsd.port, 18125);
+    }
+
+    #[test]
+    fn configures_statsd_from_datadog_host_and_port() {
+        let config = config(&[
+            ("OTEL_METRICS_EXPORTER", "statsd"),
+            ("DD_AGENT_HOST", "10.20.30.40"),
+            ("DD_DOGSTATSD_PORT", "18125"),
+        ])
+        .unwrap();
+
+        assert_eq!(config.metrics.backend, MetricsBackend::Statsd);
+        assert_eq!(config.metrics.statsd.host, "10.20.30.40");
+        assert_eq!(config.metrics.statsd.port, 18125);
+    }
+
+    #[test]
+    fn uses_statsd_defaults_when_endpoint_variables_are_empty() {
+        let config = config(&[
+            ("OTEL_METRICS_EXPORTER", "statsd"),
+            ("DD_DOGSTATSD_URL", ""),
+            ("DD_AGENT_HOST", ""),
+            ("DD_DOGSTATSD_PORT", ""),
+        ])
+        .unwrap();
+
+        assert_eq!(config.metrics.backend, MetricsBackend::Statsd);
+        assert_eq!(config.metrics.statsd.host, "localhost");
+        assert_eq!(config.metrics.statsd.port, 8125);
     }
 
     #[test]
