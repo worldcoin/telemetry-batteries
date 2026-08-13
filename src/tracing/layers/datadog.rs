@@ -2,6 +2,10 @@ use std::time::Duration;
 
 use chrono::Utc;
 use opentelemetry::trace::TracerProvider;
+#[expect(
+    deprecated,
+    reason = "no OTel-native Datadog exporter replacement yet"
+)]
 use opentelemetry_datadog::ApiVersion;
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
@@ -65,6 +69,10 @@ where
     (format_layer.and_then(otel_layer), provider)
 }
 
+#[expect(
+    deprecated,
+    reason = "no OTel-native Datadog exporter replacement yet"
+)]
 fn datadog_provider(service_name: &str, endpoint: &str) -> SdkTracerProvider {
     // Small hack https://github.com/will-bank/datadog-tracing/blob/30cdfba8d00caa04f6ac8e304f76403a5eb97129/src/tracer.rs#L29
     // Until https://github.com/open-telemetry/opentelemetry-rust-contrib/issues/7 is resolved
@@ -183,8 +191,8 @@ where
     {
         let meta = event.metadata();
 
-        let span_id = opentelemetry_span_id(ctx);
-        let trace_id = opentelemetry_trace_id(ctx);
+        let span_id = opentelemetry_span_id();
+        let trace_id = opentelemetry_trace_id();
 
         let mut visit = || {
             let mut serializer =

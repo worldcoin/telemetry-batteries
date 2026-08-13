@@ -24,16 +24,16 @@ http = "1"
 metrics = "0.24"
 metrics-exporter-statsd = { version = "0.9", optional = true }
 metrics-exporter-prometheus = { version = "0.18", optional = true }
-opentelemetry = "0.31"
-opentelemetry-datadog = { version = "0.19", features = ["reqwest-client"] }
-opentelemetry-http = "0.31"
-opentelemetry_sdk = { version = "0.31", features = [
+opentelemetry = "0.32"
+opentelemetry-datadog = { version = "0.20", features = ["reqwest-client"] }
+opentelemetry-http = "0.32"
+opentelemetry_sdk = { version = "0.32", features = [
   "rt-tokio",
   "experimental_trace_batch_span_processor_with_async_runtime",
 ] }
 pin-project = "1"
-reqwest = { version = "0.12", default-features = false }
-reqwest-middleware = { version = "0.4", optional = true }
+reqwest = { version = "0.13", default-features = false }
+reqwest-middleware = { version = "0.5", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
@@ -41,8 +41,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tower = "0.5"
 tracing = "0.1"
 tracing-appender = "0.2"
-tracing-opentelemetry = "0.32"
-tracing-opentelemetry-instrumentation-sdk = { version = "0.32", features = [
+tracing-opentelemetry = "0.33"
+tracing-opentelemetry-instrumentation-sdk = { version = "0.38", features = [
   "http",
 ] }
 tracing-serde = "0.1"

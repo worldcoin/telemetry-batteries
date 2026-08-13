@@ -2,6 +2,10 @@
 
 use crate::config::LogFormat;
 use crate::tracing::layers::datadog::datadog_layer_with_log_filter;
+#[expect(
+    deprecated,
+    reason = "no OTel-native Datadog exporter replacement yet"
+)]
 use opentelemetry_datadog::DatadogPropagator;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -12,6 +16,10 @@ pub(crate) const DEFAULT_DATADOG_AGENT_ENDPOINT: &str = "http://localhost:8126";
 /// Initialize Datadog tracing with the given configuration.
 ///
 /// This sets up both logging (with Datadog trace correlation) and span export to the Datadog Agent.
+#[expect(
+    deprecated,
+    reason = "no OTel-native Datadog exporter replacement yet"
+)]
 pub(crate) fn init(
     endpoint: Option<&str>,
     service_name: &str,
