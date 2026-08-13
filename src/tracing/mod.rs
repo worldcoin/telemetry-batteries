@@ -10,12 +10,8 @@ use opentelemetry::trace::{SpanContext, SpanId, TraceContextExt, TraceId};
 pub(crate) use opentelemetry_sdk::trace::SdkTracerProvider;
 
 use std::io;
-use tracing::Subscriber;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use tracing_opentelemetry::OtelData;
 pub use tracing_subscriber::Registry;
-use tracing_subscriber::fmt::{FmtContext, FormatFields};
-use tracing_subscriber::registry::{LookupSpan, SpanRef};
 
 /// Handle that shuts down the tracing provider when dropped.
 #[must_use]
@@ -54,41 +50,36 @@ pub fn trace_to_headers(headers: &mut http::HeaderMap) {
     });
 }
 
-/// Finds Otel trace id by going up the span stack until we find a span
-/// with a trace id.
-pub fn opentelemetry_trace_id<S, N>(ctx: &FmtContext<'_, S, N>) -> Option<u128>
-where
-    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-    N: for<'writer> FormatFields<'writer> + 'static,
-{
-    let span_ref = span_from_ctx(ctx)?;
-
-    let extensions = span_ref.extensions();
-
-    let data = extensions.get::<OtelData>()?;
-    let trace_id = data.trace_id()?;
+/// Otel trace id of the currently active span, if any.
+///
+/// Reads the OpenTelemetry context that `OpenTelemetryLayer` attaches to the
+/// thread when a tracing span is entered, so this only reports ids for spans
+/// that are currently entered.
+pub fn opentelemetry_trace_id() -> Option<u128> {
+    let trace_id = current_span_context()?.trace_id();
     Some(u128::from_be_bytes(trace_id.to_bytes()))
 }
 
-/// Finds Otel span id
+/// Otel span id of the currently active span, if any.
 ///
-/// BUG: The otel object is not available for span end events. This is
-/// because the Otel layer is higher in the stack and removes the
-/// extension before we get here.
-///
-/// Fallbacks on tracing span id
-pub fn opentelemetry_span_id<S, N>(ctx: &FmtContext<'_, S, N>) -> Option<u64>
-where
-    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-    N: for<'writer> FormatFields<'writer> + 'static,
-{
-    let span_ref = span_from_ctx(ctx)?;
-
-    let extensions = span_ref.extensions();
-
-    let data = extensions.get::<OtelData>()?;
-    let span_id = data.span_id()?;
+/// Same caveat as [`opentelemetry_trace_id`]: the id is only available while
+/// the span is entered, so span end events report nothing.
+pub fn opentelemetry_span_id() -> Option<u64> {
+    let span_id = current_span_context()?.span_id();
     Some(u64::from_be_bytes(span_id.to_bytes()))
+}
+
+/// Span context of the active Otel span, or `None` when no span is active or
+/// no Otel layer is installed.
+fn current_span_context() -> Option<SpanContext> {
+    let context = Context::current();
+    let span_context = context.span().span_context().clone();
+
+    if span_context.is_valid() {
+        Some(span_context)
+    } else {
+        None
+    }
 }
 
 /// Sets the current span's parent to the specified context
@@ -108,16 +99,6 @@ pub fn extract_span_ids() -> (TraceId, SpanId) {
     let span_id = span_context.span_id();
 
     (trace_id, span_id)
-}
-
-fn span_from_ctx<'a, S, N>(
-    ctx: &'a FmtContext<'a, S, N>,
-) -> Option<SpanRef<'a, S>>
-where
-    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-    N: for<'writer> FormatFields<'writer> + 'static,
-{
-    ctx.lookup_current().or_else(|| ctx.parent_span())
 }
 
 pub struct WriteAdapter<'a> {
