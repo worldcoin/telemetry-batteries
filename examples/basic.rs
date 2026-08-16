@@ -3,27 +3,25 @@
 //! This is the simplest way to initialize telemetry - all configuration
 //! comes from environment variables.
 //!
-//! Run with default settings (local preset - pretty logs):
+//! Run with default settings (pretty local logs):
 //! ```bash
 //! cargo run --example basic
 //! ```
 //!
 //! Run with Datadog:
 //! ```bash
-//! TELEMETRY_PRESET=datadog \
-//! TELEMETRY_SERVICE_NAME=my-service \
+//! DD_SERVICE=my-service \
 //! cargo run --example basic
 //! ```
 //!
 //! Run with Datadog but pretty logs for debugging:
 //! ```bash
-//! TELEMETRY_PRESET=datadog \
-//! TELEMETRY_SERVICE_NAME=my-service \
-//! TELEMETRY_LOG_FORMAT=pretty \
+//! DD_SERVICE=my-service \
+//! LOG_FORMAT=pretty \
 //! cargo run --example basic
 //! ```
 //!
-//! Note: Datadog preset requires a Tokio runtime.
+//! Note: Datadog tracing requires a Tokio runtime.
 
 use std::time::Duration;
 

@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Outgoing trace-context propagation for `reqwest::RequestBuilder` and
   `reqwest-middleware` clients.
+- Datadog and OpenTelemetry-native variables configure tracing and metrics
+  without library-specific enable or backend switches.
+
+### Changed
+
+- **Breaking:** environment configuration no longer uses the `TELEMETRY_*`
+  namespace. `DD_SERVICE` enables Datadog tracing, while standard
+  `OTEL_TRACES_EXPORTER` and `OTEL_METRICS_EXPORTER` settings select the
+  supported exporters. `OTEL_METRICS_EXPORTER=statsd` is a documented extension
+  configured through native DogStatsD endpoint variables.
+- `RUST_LOG` is now the sole log-filter environment variable, and `LOG_FORMAT`
+  controls formatting.
+- **Breaking:** `TelemetryPreset` has been removed. Setting `service_name` now
+  enables Datadog directly in programmatic configuration.
 
 ## [0.3.2](https://github.com/worldcoin/telemetry-batteries/compare/v0.3.1...v0.3.2) - 2026-06-24
 

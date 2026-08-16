@@ -41,41 +41,60 @@ async fn run() -> eyre::Result<()> {
 
 ## Configuration
 
-Configuration is done via environment variables using **presets**:
+Configuration is done through environment variables for each telemetry
+backend. Local pretty logs are enabled by default. Datadog distributed tracing
+is enabled automatically when a service name is present:
 
-### Presets
+```bash
+DD_SERVICE=my-service cargo run
+```
 
-| Preset | Log Format | Log Output | Span Export | Use Case |
-|--------|------------|------------|-------------|----------|
-| `local` | pretty | stdout | none | Local development |
-| `datadog` | datadog_json | stdout | Datadog Agent | Production with Datadog |
-| `none` | - | none | none | Disable telemetry |
+Standard `OTEL_*` variables follow the
+[OpenTelemetry SDK environment-variable specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/)
+for the exporters supported by this crate. Empty `OTEL_*` values are treated as
+unset. Datadog-specific variables are retained for selecting and connecting to
+the Datadog integration.
 
 ### Environment Variables
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `TELEMETRY_PRESET` | `local`, `datadog`, `none` | `local` |
-| `TELEMETRY_SERVICE_NAME` | string | required for datadog |
-| `RUST_LOG` or `TELEMETRY_LOG_LEVEL` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
-| `TELEMETRY_LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | (from preset) |
-| `TELEMETRY_DATADOG_ENDPOINT` | url | `http://localhost:8126` |
-| `TELEMETRY_EYRE_MODE` | `color`, `json` | `color` |
+| `DD_SERVICE` | string | enables Datadog when set |
+| `DD_TRACE_AGENT_URL` | URL | derived from `DD_AGENT_HOST` |
+| `DD_AGENT_HOST` | hostname or IP | `localhost` |
+| `DD_TRACE_AGENT_PORT` | port | `8126` |
+| `DD_TRACE_ENABLED` | `true`, `false` | `true` |
+| `OTEL_TRACES_EXPORTER` | `none` | - |
+| `RUST_LOG` | [EnvFilter syntax](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) | `info` |
+| `LOG_FORMAT` | `pretty`, `json`, `compact`, `datadog_json` | `pretty`, or `datadog_json` with Datadog |
+
+`OTEL_TRACES_EXPORTER=none` or the Datadog compatibility setting
+`DD_TRACE_ENABLED=false` disables distributed span export without disabling log
+output. The standard OpenTelemetry setting takes precedence when both are set.
+Use `RUST_LOG=off` to disable logs.
 
 ### Metrics Configuration
 
-Metrics are configured independently from presets:
+Metrics are configured independently:
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `TELEMETRY_METRICS_BACKEND` | `prometheus`, `statsd`, `none` | `none` |
-| `TELEMETRY_PROMETHEUS_MODE` | `http`, `push` | `http` |
-| `TELEMETRY_PROMETHEUS_LISTEN` | `addr:port` | `0.0.0.0:9090` |
-| `TELEMETRY_PROMETHEUS_ENDPOINT` | url | - |
-| `TELEMETRY_PROMETHEUS_INTERVAL` | seconds | `10` |
-| `TELEMETRY_STATSD_HOST` | string | `localhost` |
-| `TELEMETRY_STATSD_PORT` | u16 | `8125` |
-| `TELEMETRY_STATSD_PREFIX` | string | - |
+| `OTEL_METRICS_EXPORTER` | `prometheus`, `statsd`, `none` | `none` |
+| `OTEL_EXPORTER_PROMETHEUS_HOST` | IP address or `localhost` | `localhost` |
+| `OTEL_EXPORTER_PROMETHEUS_PORT` | port | `9464` |
+| `DD_DOGSTATSD_URL` | `udp://host[:port]` | derived from `DD_AGENT_HOST` |
+| `DD_DOGSTATSD_PORT` | port | `8125` |
+
+Prometheus is enabled by `OTEL_METRICS_EXPORTER=prometheus`, while
+`OTEL_METRICS_EXPORTER=none` explicitly disables metrics. This crate does not
+currently provide the specification's OTLP or console metrics exporters, so it
+defaults to `none` instead of the specification's `otlp`.
+
+StatsD is enabled with `OTEL_METRICS_EXPORTER=statsd`. The `statsd` value is a
+documented extension because StatsD is not defined by the OpenTelemetry
+specification. `DD_DOGSTATSD_URL` configures its UDP endpoint; otherwise it uses
+`DD_AGENT_HOST` and `DD_DOGSTATSD_PORT`, defaulting to `localhost:8125`.
+Datadog endpoint variables alone do not select the metrics exporter.
 
 ### Programmatic Configuration
 
@@ -83,16 +102,16 @@ For more control, use the builder pattern:
 
 ```rust
 use telemetry_batteries::{
-    TelemetryConfig, TelemetryPreset, LogFormat,
+    TelemetryConfig, LogFormat,
     MetricsConfig, MetricsBackend, StatsdConfig,
 };
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let config = TelemetryConfig::builder()
-        .preset(TelemetryPreset::Datadog)
         .service_name("my-service".to_owned())
-        .log_format(LogFormat::Pretty)  // Override preset's log format
+        .log_format(LogFormat::Pretty)
+        .tracing_enabled(true)
         .metrics(MetricsConfig::builder()
             .backend(MetricsBackend::Statsd)
             .statsd(StatsdConfig::builder()
@@ -113,17 +132,26 @@ async fn main() -> eyre::Result<()> {
 ## Usage Examples
 
 ```bash
-# Local development - pretty logs, no tracing
+# Local development - pretty logs, no span export
 cargo run
 
 # Datadog production
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service cargo run
+DD_SERVICE=my-service cargo run
 
 # Datadog with pretty logs for debugging
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-service TELEMETRY_LOG_FORMAT=pretty cargo run
+DD_SERVICE=my-service LOG_FORMAT=pretty cargo run
+
+# Datadog-formatted logs without distributed span export
+DD_SERVICE=my-service OTEL_TRACES_EXPORTER=none cargo run
 
 # With Prometheus metrics
-TELEMETRY_METRICS_BACKEND=prometheus cargo run
+OTEL_METRICS_EXPORTER=prometheus cargo run
+
+# With DogStatsD metrics through the Datadog Agent
+OTEL_METRICS_EXPORTER=statsd \
+DD_AGENT_HOST=127.0.0.1 \
+DD_DOGSTATSD_PORT=8125 \
+cargo run
 ```
 
 ## Distributed Tracing
@@ -207,14 +235,14 @@ See the examples directory:
 Run the examples:
 
 ```bash
-# Basic example with local preset
+# Basic example with local logging
 cargo run --example basic
 
 # Basic example with Datadog
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run --example basic
+DD_SERVICE=test cargo run --example basic
 
 # Axum server with trace propagation
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run --example axum_tracing
+DD_SERVICE=my-api cargo run --example axum_tracing
 ```
 
 ## License

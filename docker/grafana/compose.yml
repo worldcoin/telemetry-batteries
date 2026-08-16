@@ -7,10 +7,10 @@ services:
       - ../..:/app
       - cargo-cache:/usr/local/cargo/registry
     environment:
-      - TELEMETRY_PRESET=datadog
-      - TELEMETRY_SERVICE_NAME=app
-      - TELEMETRY_METRICS_BACKEND=prometheus
-      - TELEMETRY_PROMETHEUS_LISTEN=0.0.0.0:9091
+      - DD_SERVICE=app
+      - OTEL_METRICS_EXPORTER=prometheus
+      - OTEL_EXPORTER_PROMETHEUS_HOST=0.0.0.0
+      - OTEL_EXPORTER_PROMETHEUS_PORT=9091
       - RUST_LOG=info
     command: cargo run --example basic --features metrics-prometheus
     labels:

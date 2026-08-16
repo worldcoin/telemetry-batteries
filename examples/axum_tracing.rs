@@ -5,8 +5,7 @@
 //!
 //! Run with Datadog:
 //! ```bash
-//! TELEMETRY_PRESET=datadog \
-//! TELEMETRY_SERVICE_NAME=axum-tracing-example \
+//! DD_SERVICE=axum-tracing-example \
 //! cargo run -p telemetry-batteries --example axum_tracing
 //! ```
 //!

@@ -10,9 +10,7 @@ use opentelemetry::trace::{
 use telemetry_batteries::tracing::layers::datadog::DatadogFormat;
 use telemetry_batteries::tracing::middleware::TraceLayer;
 use telemetry_batteries::tracing_opentelemetry::OpenTelemetrySpanExt;
-use telemetry_batteries::{
-    LogFormat, TelemetryConfig, TelemetryPreset, init_with_config,
-};
+use telemetry_batteries::{LogFormat, TelemetryConfig, init_with_config};
 use tokio::sync::oneshot;
 use tracing_subscriber::Layer;
 use tracing_subscriber::fmt::MakeWriter;
@@ -30,7 +28,6 @@ struct TraceIds {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn datadog_integration() -> eyre::Result<()> {
     let _guard = init_with_config(TelemetryConfig {
-        preset: TelemetryPreset::Datadog,
         service_name: Some("datadog-integration-test".to_owned()),
         log_format: Some(LogFormat::DatadogJson),
         ..TelemetryConfig::default()
