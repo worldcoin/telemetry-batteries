@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/worldcoin/telemetry-batteries/compare/v0.4.0...v0.4.1) - 2026-09-03
+
+### Added
+
+- add route-aware axum tracing ([#78](https://github.com/worldcoin/telemetry-batteries/pull/78))
+
 ### Added
 
 - Add route-aware Axum tracing that records `http.route` and names server
