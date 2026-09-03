@@ -7,7 +7,7 @@
 //! ```bash
 //! TELEMETRY_PRESET=datadog \
 //! TELEMETRY_SERVICE_NAME=axum-tracing-example \
-//! cargo run -p telemetry-batteries --example axum_tracing
+//! cargo run -p telemetry-batteries --features axum --example axum_tracing
 //! ```
 //!
 //! Then test with:
@@ -33,7 +33,7 @@ async fn main() -> eyre::Result<()> {
     let app = Router::new()
         .route("/", get(root))
         .route("/hello/{name}", get(hello))
-        .layer(TraceLayer::new());
+        .layer(TraceLayer::new_for_axum());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     tracing::info!("Listening on http://0.0.0.0:3000");
