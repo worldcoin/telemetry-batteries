@@ -16,6 +16,8 @@
 //!   error's message under `exception.message`.
 //! - [`update_span_from_response_or_error`] — convenience dispatcher used
 //!   when wrapping a fallible handler.
+//! - `TraceLayer::new_for_axum` — when the `axum` feature is enabled,
+//!   populate `http.route` and the span name from Axum's matched route.
 
 use std::error::Error;
 use std::future::Future;
@@ -34,6 +36,9 @@ use tracing_opentelemetry_instrumentation_sdk::http::{
 
 /// Function type for creating custom spans.
 pub type MakeSpan = fn(&http::Request<()>) -> Span;
+
+/// Function type for extracting a low-cardinality route template.
+pub type RouteExtractor = for<'a> fn(&'a http::Extensions) -> Option<&'a str>;
 
 /// Build a richly-tagged server span for an HTTP request.
 ///
@@ -120,6 +125,10 @@ fn default_make_span(request: &http::Request<()>) -> Span {
 /// 3. Run the inner service within the span
 /// 4. Inject trace context into outgoing response headers
 ///
+/// Framework integrations can provide a route extractor via
+/// [`with_route_extractor`](Self::with_route_extractor). For Axum, enable the
+/// `axum` feature and use `TraceLayer::new_for_axum`.
+///
 /// # Example
 ///
 /// ```ignore
@@ -128,7 +137,7 @@ fn default_make_span(request: &http::Request<()>) -> Span {
 ///
 /// let app = Router::new()
 ///     .route("/", get(handler))
-///     .layer(TraceLayer::new());
+///     .layer(TraceLayer::new_for_axum());
 /// ```
 ///
 /// # Custom Span
@@ -148,6 +157,7 @@ fn default_make_span(request: &http::Request<()>) -> Span {
 #[derive(Debug, Clone, Copy)]
 pub struct TraceLayer {
     make_span: MakeSpan,
+    route_extractor: Option<RouteExtractor>,
 }
 
 impl Default for TraceLayer {
@@ -161,7 +171,23 @@ impl TraceLayer {
     pub fn new() -> Self {
         Self {
             make_span: default_make_span,
+            route_extractor: None,
         }
+    }
+
+    /// Create a route-aware tracing layer for Axum.
+    ///
+    /// The matched route template is recorded as `http.route` and combined
+    /// with the request method for the OpenTelemetry span name. Using the
+    /// template rather than the raw URL avoids high-cardinality resource
+    /// names for parameterized routes.
+    ///
+    /// Apply this with `Router::layer` or `Router::route_layer` after adding
+    /// routes so Axum has populated `MatchedPath` before the layer runs.
+    /// Unmatched requests keep a method-only name and no `http.route`.
+    #[cfg(feature = "axum")]
+    pub fn new_for_axum() -> Self {
+        Self::new().with_route_extractor(axum_route)
     }
 
     /// Set a custom function for creating the request span.
@@ -172,6 +198,27 @@ impl TraceLayer {
         self.make_span = make_span;
         self
     }
+
+    /// Set a function that extracts a low-cardinality route template.
+    ///
+    /// The extractor receives the original request's extensions. When it
+    /// returns a route, the layer records `http.route` and sets the
+    /// OpenTelemetry span name to `{METHOD} {ROUTE}`. Custom spans must
+    /// declare both fields for those records to be retained.
+    pub fn with_route_extractor(
+        mut self,
+        route_extractor: RouteExtractor,
+    ) -> Self {
+        self.route_extractor = Some(route_extractor);
+        self
+    }
+}
+
+#[cfg(feature = "axum")]
+fn axum_route(extensions: &http::Extensions) -> Option<&str> {
+    extensions
+        .get::<axum::extract::MatchedPath>()
+        .map(axum::extract::MatchedPath::as_str)
 }
 
 impl<S> Layer<S> for TraceLayer {
@@ -181,6 +228,7 @@ impl<S> Layer<S> for TraceLayer {
         TraceService {
             inner,
             make_span: self.make_span,
+            route_extractor: self.route_extractor,
         }
     }
 }
@@ -190,6 +238,7 @@ impl<S> Layer<S> for TraceLayer {
 pub struct TraceService<S> {
     inner: S,
     make_span: MakeSpan,
+    route_extractor: Option<RouteExtractor>,
 }
 
 impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for TraceService<S>
@@ -220,9 +269,9 @@ where
         let inner = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, inner);
 
-        // Build a body-erased view of the request for span creation. We
-        // copy the headers across so helpers like `http_host` and
-        // `user_agent` can populate the span correctly.
+        // Build a body-erased view of the request for span creation. We copy
+        // the headers across so helpers like `http_host` and `user_agent` can
+        // populate the span correctly.
         let mut span_request_builder = http::Request::builder()
             .method(request.method().clone())
             .uri(request.uri().clone())
@@ -235,6 +284,16 @@ where
             .expect("request builder with () body cannot fail");
 
         let span = (self.make_span)(&span_request);
+        if let Some(route) = self
+            .route_extractor
+            .and_then(|extractor| extractor(request.extensions()))
+        {
+            span.record("http.route", route);
+            span.record(
+                "otel.name",
+                format_args!("{} {route}", span_request.method()),
+            );
+        }
         let _ = span.set_parent(
             opentelemetry::global::get_text_map_propagator(|propagator| {
                 propagator.extract(&opentelemetry_http::HeaderExtractor(

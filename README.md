@@ -128,7 +128,13 @@ TELEMETRY_METRICS_BACKEND=prometheus cargo run
 
 ## Distributed Tracing
 
-For distributed tracing with axum or any Tower-compatible framework, use `TraceLayer`:
+For distributed tracing with Axum, enable the `axum` feature:
+
+```toml
+telemetry-batteries = { version = "0.4", features = ["axum"] }
+```
+
+Then use the route-aware constructor:
 
 ```rust,ignore
 use axum::{routing::get, Router};
@@ -136,14 +142,19 @@ use telemetry_batteries::tracing::middleware::TraceLayer;
 
 let app = Router::new()
     .route("/", get(handler))
-    .layer(TraceLayer::new());
+    .layer(TraceLayer::new_for_axum());
 ```
 
 The middleware automatically:
 
 - Creates a span for each request
+- Names the span from the HTTP method and matched route template
+- Records the matched route as `http.route`
 - Extracts trace context from incoming headers (e.g., `traceparent`)
 - Injects trace context into response headers
+
+Use `TraceLayer::new()` for framework-neutral Tower services. A custom
+low-cardinality route template can be supplied with `with_route_extractor`.
 
 Custom span creation:
 
@@ -191,6 +202,7 @@ This integration propagates the current context but does not create client spans
 
 | Feature | Default | Description |
 |---------|---------|-------------|
+| `axum` | No | Route-aware server tracing for Axum applications |
 | `metrics-prometheus` | Yes | Prometheus metrics exporter |
 | `metrics-statsd` | Yes | StatsD metrics exporter |
 | `reqwest-middleware` | No | Automatic outgoing trace-context propagation for `reqwest-middleware` clients |
@@ -214,7 +226,7 @@ cargo run --example basic
 TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=test cargo run --example basic
 
 # Axum server with trace propagation
-TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run --example axum_tracing
+TELEMETRY_PRESET=datadog TELEMETRY_SERVICE_NAME=my-api cargo run --features axum --example axum_tracing
 ```
 
 ## License

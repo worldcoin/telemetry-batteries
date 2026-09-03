@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add route-aware Axum tracing that records `http.route` and names server
+  spans from the HTTP method and matched route template.
+
 ## [0.4.0](https://github.com/worldcoin/telemetry-batteries/compare/v0.3.2...v0.4.0) - 2026-08-13
 
 ### Added

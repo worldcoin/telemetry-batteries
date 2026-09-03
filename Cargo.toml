@@ -9,12 +9,14 @@ repository = "https://github.com/worldcoin/telemetry-batteries"
 
 [features]
 default = ["metrics-prometheus", "metrics-statsd"]
+axum = ["dep:axum"]
 metrics-statsd = ["dep:metrics-exporter-statsd"]
 metrics-prometheus = ["dep:metrics-exporter-prometheus"]
 reqwest-middleware = ["dep:async-trait", "dep:reqwest-middleware"]
 
 [dependencies]
 async-trait = { version = "0.1", optional = true }
+axum = { version = "0.8", default-features = false, features = ["matched-path"], optional = true }
 backtrace = "0.3"
 bon = "3"
 chrono = "0.4"
@@ -52,3 +54,7 @@ rand = "0.9"
 [dev-dependencies]
 anyhow = "1.0"
 axum = "0.8"
+
+[[example]]
+name = "axum_tracing"
+required-features = ["axum"]
