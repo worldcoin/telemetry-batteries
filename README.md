@@ -43,7 +43,9 @@ async fn run() -> eyre::Result<()> {
 
 Configuration is done via environment variables using **presets**:
 
-### Presets
+#StatsD metrics are tagged with Datadog's unified service tags when the variables are set: `service` from `DD_SERVICE` (else `TELEMETRY_SERVICE_NAME`), `env` from `DD_ENV` and `version` from `DD_VERSION`. `DD_ENTITY_ID` (set it to the pod UID via `fieldRef: metadata.uid`) is sent as `dd.internal.entity_id`, which lets the agent attach pod tags to UDP metrics. Buffered metrics are flushed on the interval and once more when the `TelemetryGuard` is dropped.
+
+## Presets
 
 | Preset | Log Format | Log Output | Span Export | Use Case |
 |--------|------------|------------|-------------|----------|
@@ -76,6 +78,7 @@ Metrics are configured independently from presets:
 | `TELEMETRY_STATSD_HOST` | string | `localhost` |
 | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
 | `TELEMETRY_STATSD_PREFIX` | string | - |
+| `TELEMETRY_STATSD_FLUSH_INTERVAL_MS` | integer ms, `0` = only when the buffer is full | `2000` |
 
 ### Programmatic Configuration
 

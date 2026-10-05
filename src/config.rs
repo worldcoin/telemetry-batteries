@@ -166,7 +166,18 @@ pub struct StatsdConfig {
     /// Buffer size for the exporter.
     #[builder(default = 1024)]
     pub buffer_size: usize,
+
+    /// Tags added to every metric, e.g. Datadog's unified service tags.
+    #[builder(default)]
+    pub default_tags: Vec<(String, String)>,
+
+    /// How often buffered metrics are sent. Zero sends only when the buffer is full.
+    #[builder(default = DEFAULT_STATSD_FLUSH_INTERVAL)]
+    pub flush_interval: Duration,
 }
+
+/// Below the Datadog agent's 10s flush, so a sample lands in the interval it was recorded in.
+const DEFAULT_STATSD_FLUSH_INTERVAL: Duration = Duration::from_secs(2);
 
 impl Default for StatsdConfig {
     fn default() -> Self {
@@ -176,6 +187,8 @@ impl Default for StatsdConfig {
             prefix: None,
             queue_size: 5000,
             buffer_size: 1024,
+            default_tags: Vec::new(),
+            flush_interval: DEFAULT_STATSD_FLUSH_INTERVAL,
         }
     }
 }
@@ -270,6 +283,12 @@ impl TelemetryConfig {
     /// | `TELEMETRY_STATSD_HOST` | string | `localhost` |
     /// | `TELEMETRY_STATSD_PORT` | u16 | `8125` |
     /// | `TELEMETRY_STATSD_PREFIX` | string | - |
+    /// | `TELEMETRY_STATSD_FLUSH_INTERVAL_MS` | integer ms, `0` = only when full | `2000` |
+    ///
+    /// StatsD metrics are tagged with Datadog's unified service tags when set: `service` from
+    /// `DD_SERVICE` (else `TELEMETRY_SERVICE_NAME`), `env` from `DD_ENV`, `version` from
+    /// `DD_VERSION`, and `dd.internal.entity_id` from `DD_ENTITY_ID` (the pod UID, which the
+    /// agent uses to attach pod tags to UDP metrics).
     pub fn from_env() -> eyre::Result<Self> {
         let service_name = env::var("TELEMETRY_SERVICE_NAME").ok();
 
@@ -329,6 +348,16 @@ impl TelemetryConfig {
             prefix: env::var("TELEMETRY_STATSD_PREFIX").ok(),
             queue_size: 5000,
             buffer_size: 1024,
+            default_tags: statsd_default_tags_from_env(service_name.as_deref()),
+            flush_interval: env::var("TELEMETRY_STATSD_FLUSH_INTERVAL_MS")
+                .ok()
+                .map(|s| {
+                    s.parse::<u64>().map(Duration::from_millis).map_err(|_| {
+                        eyre!("invalid TELEMETRY_STATSD_FLUSH_INTERVAL_MS: expected integer milliseconds, got '{s}'")
+                    })
+                })
+                .transpose()?
+                .unwrap_or(DEFAULT_STATSD_FLUSH_INTERVAL),
         };
 
         let metrics = MetricsConfig {
@@ -349,5 +378,89 @@ impl TelemetryConfig {
             otlp_endpoint,
             metrics,
         })
+    }
+}
+
+/// Datadog unified service tags and entity ID from the environment, skipping unset or empty ones.
+fn statsd_default_tags_from_env(
+    service_name: Option<&str>,
+) -> Vec<(String, String)> {
+    statsd_default_tags(|name| env::var(name).ok(), service_name)
+}
+
+fn statsd_default_tags(
+    var: impl Fn(&str) -> Option<String>,
+    service_name: Option<&str>,
+) -> Vec<(String, String)> {
+    let var = |name| var(name).filter(|value| !value.is_empty());
+    [
+        (
+            "service",
+            var("DD_SERVICE").or_else(|| {
+                service_name.filter(|s| !s.is_empty()).map(str::to_owned)
+            }),
+        ),
+        ("env", var("DD_ENV")),
+        ("version", var("DD_VERSION")),
+        ("dd.internal.entity_id", var("DD_ENTITY_ID")),
+    ]
+    .into_iter()
+    .filter_map(|(key, value)| Some((key.to_owned(), value?)))
+    .collect()
+}
+
+#[cfg(test)]
+mod statsd_tag_tests {
+    use super::statsd_default_tags;
+
+    fn tags(
+        vars: &[(&str, &str)],
+        service_name: Option<&str>,
+    ) -> Vec<(String, String)> {
+        let lookup = |name: &str| {
+            vars.iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| (*value).to_owned())
+        };
+        statsd_default_tags(lookup, service_name)
+    }
+
+    fn pairs(expected: &[(&str, &str)]) -> Vec<(String, String)> {
+        expected
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn maps_unified_service_tags_and_entity_id() {
+        let vars = [
+            ("DD_SERVICE", "svc"),
+            ("DD_ENV", "dev"),
+            ("DD_VERSION", "1.2.3"),
+            ("DD_ENTITY_ID", "pod-uid"),
+        ];
+        assert_eq!(
+            tags(&vars, Some("ignored")),
+            pairs(&[
+                ("service", "svc"),
+                ("env", "dev"),
+                ("version", "1.2.3"),
+                ("dd.internal.entity_id", "pod-uid"),
+            ])
+        );
+    }
+
+    #[test]
+    fn service_falls_back_to_telemetry_service_name() {
+        assert_eq!(
+            tags(&[("DD_SERVICE", "")], Some("svc")),
+            pairs(&[("service", "svc")])
+        );
+    }
+
+    #[test]
+    fn skips_unset_and_empty_values() {
+        assert!(tags(&[("DD_ENV", "")], None).is_empty());
     }
 }
