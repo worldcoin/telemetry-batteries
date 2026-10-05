@@ -12,6 +12,7 @@ pub use config::{
     LogFormat, MetricsBackend, MetricsConfig, PrometheusConfig, PrometheusMode,
     StatsdConfig, TelemetryConfig, TelemetryPreset,
 };
+use guard::MetricsHandle;
 pub use guard::TelemetryGuard;
 pub use top_level::TopLevelResultExt;
 
@@ -120,12 +121,12 @@ pub fn init_with_config(
     };
 
     // Initialize metrics based on backend
-    init_metrics(&config.metrics)?;
+    let metrics_handle = init_metrics(&config.metrics)?;
 
-    Ok(TelemetryGuard::new(tracing_handle))
+    Ok(TelemetryGuard::new(tracing_handle, metrics_handle))
 }
 
-fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
+fn init_metrics(config: &MetricsConfig) -> eyre::Result<MetricsHandle> {
     match config.backend {
         MetricsBackend::Prometheus => {
             #[cfg(feature = "metrics-prometheus")]
@@ -140,7 +141,9 @@ fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
         MetricsBackend::Statsd => {
             #[cfg(feature = "metrics-statsd")]
             {
-                metrics::statsd::init(&config.statsd)?;
+                return Ok(MetricsHandle {
+                    statsd: Some(metrics::statsd::init(&config.statsd)?),
+                });
             }
             #[cfg(not(feature = "metrics-statsd"))]
             {
@@ -152,5 +155,5 @@ fn init_metrics(config: &MetricsConfig) -> eyre::Result<()> {
         }
     }
 
-    Ok(())
+    Ok(MetricsHandle::default())
 }
