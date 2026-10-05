@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/worldcoin/telemetry-batteries/compare/v0.4.1...v0.5.0) - 2026-10-05
+
+### Added
+
+- *(statsd)* [**breaking**] tag metrics with Datadog service tags and flush on an interval ([#80](https://github.com/worldcoin/telemetry-batteries/pull/80))
+
+### Fixed
+
+- *(statsd)* send gauge increments and decrements as absolute values ([#81](https://github.com/worldcoin/telemetry-batteries/pull/81))
+
 ## [0.4.1](https://github.com/worldcoin/telemetry-batteries/compare/v0.4.0...v0.4.1) - 2026-09-03
 
 ### Added
