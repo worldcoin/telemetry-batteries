@@ -8,12 +8,15 @@
 //! - The UDP sink buffers until full. At low traffic that holds samples for minutes, so they land
 //!   in the wrong time bucket, and drops them at shutdown. A background thread flushes it on an
 //!   interval, and [`StatsdHandle`] flushes once more when dropped.
+//! - StatsD gauges are absolute, so `metrics-exporter-statsd` drops `increment`/`decrement`.
+//!   [`GaugeTracking`] keeps each gauge's value and sends it with `set` instead.
 
 use std::{
+    collections::HashMap,
     io,
     net::UdpSocket,
     sync::{
-        Arc,
+        Arc, Mutex,
         mpsc::{self, RecvTimeoutError},
     },
     thread::JoinHandle,
@@ -23,6 +26,10 @@ use cadence::{
     BufferedUdpMetricSink, MetricSink, QueuingMetricSink, SinkStats,
 };
 use eyre::WrapErr as _;
+use metrics::{
+    Counter, Gauge, GaugeFn, Histogram, Key, KeyName, Metadata, Recorder,
+    SharedString, Unit,
+};
 use metrics_exporter_statsd::StatsdBuilder;
 
 use crate::config::StatsdConfig;
@@ -54,7 +61,7 @@ pub(crate) fn init(config: &StatsdConfig) -> eyre::Result<StatsdHandle> {
         builder = builder.with_default_tag(key, value);
     }
     let recorder = builder.build(config.prefix.as_deref())?;
-    metrics::set_global_recorder(recorder)?;
+    metrics::set_global_recorder(GaugeTracking::new(recorder))?;
 
     let flusher = if config.flush_interval.is_zero() {
         None
@@ -126,5 +133,112 @@ impl MetricSink for SharedSink {
 
     fn stats(&self) -> SinkStats {
         self.0.stats()
+    }
+}
+
+/// Sends gauge increments and decrements as absolute values.
+///
+/// StatsD has no relative gauge update that DogStatsD honours, so `metrics-exporter-statsd`
+/// silently ignores `increment`/`decrement`: a gauge maintained that way (active connections, say)
+/// was never sent. This keeps each gauge's value, shared by every handle registered for the same
+/// key, and forwards it with `set`.
+struct GaugeTracking<R> {
+    inner: R,
+    values: Mutex<HashMap<Key, Arc<Mutex<f64>>>>,
+}
+
+impl<R> GaugeTracking<R> {
+    fn new(inner: R) -> Self {
+        Self {
+            inner,
+            values: Mutex::default(),
+        }
+    }
+}
+
+impl<R: Recorder> Recorder for GaugeTracking<R> {
+    fn describe_counter(
+        &self,
+        key: KeyName,
+        unit: Option<Unit>,
+        description: SharedString,
+    ) {
+        self.inner.describe_counter(key, unit, description);
+    }
+
+    fn describe_gauge(
+        &self,
+        key: KeyName,
+        unit: Option<Unit>,
+        description: SharedString,
+    ) {
+        self.inner.describe_gauge(key, unit, description);
+    }
+
+    fn describe_histogram(
+        &self,
+        key: KeyName,
+        unit: Option<Unit>,
+        description: SharedString,
+    ) {
+        self.inner.describe_histogram(key, unit, description);
+    }
+
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
+        self.inner.register_counter(key, metadata)
+    }
+
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
+        let value = Arc::clone(
+            self.values
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .entry(key.clone())
+                .or_default(),
+        );
+        Gauge::from_arc(Arc::new(TrackedGauge {
+            inner: self.inner.register_gauge(key, metadata),
+            value,
+        }))
+    }
+
+    fn register_histogram(
+        &self,
+        key: &Key,
+        metadata: &Metadata<'_>,
+    ) -> Histogram {
+        self.inner.register_histogram(key, metadata)
+    }
+}
+
+struct TrackedGauge {
+    inner: Gauge,
+    value: Arc<Mutex<f64>>,
+}
+
+impl TrackedGauge {
+    /// Updates and sends under one lock, so concurrent updates reach the wire in order and the
+    /// last value sent is the current one. Sending only enqueues, so the lock is held briefly.
+    fn update(&self, f: impl FnOnce(f64) -> f64) {
+        let mut value = self
+            .value
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *value = f(*value);
+        self.inner.set(*value);
+    }
+}
+
+impl GaugeFn for TrackedGauge {
+    fn increment(&self, delta: f64) {
+        self.update(|value| value + delta);
+    }
+
+    fn decrement(&self, delta: f64) {
+        self.update(|value| value - delta);
+    }
+
+    fn set(&self, value: f64) {
+        self.update(|_| value);
     }
 }
