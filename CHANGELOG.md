@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Drop the unmaintained `chrono` dependency ([RUSTSEC-2026-0543](https://github.com/chronotope/chrono/issues/1768))
+  in favor of `time`. Datadog JSON log timestamps keep their format.
+
 ## [0.4.1](https://github.com/worldcoin/telemetry-batteries/compare/v0.4.0...v0.4.1) - 2026-09-03
 
 ### Added
