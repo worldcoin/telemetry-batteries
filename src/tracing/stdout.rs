@@ -3,7 +3,7 @@
 use crate::config::LogFormat;
 use crate::tracing::TracingShutdownHandle;
 use tracing_subscriber::{
-    EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt,
+    EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 /// Initialize stdout tracing with the specified format and log level.
@@ -14,6 +14,10 @@ pub(crate) fn init(
     format: LogFormat,
     log_level: &str,
 ) -> TracingShutdownHandle {
+    // The filter is applied to the whole subscriber, not to the fmt layer: a
+    // per-layer filter loses the event or span that follows a
+    // `log::log_enabled!` call
+    // (https://github.com/tokio-rs/tracing/issues/2519).
     let filter = EnvFilter::new(log_level);
 
     match format {
@@ -23,25 +27,27 @@ pub(crate) fn init(
                 .pretty()
                 .with_target(false)
                 .with_line_number(true)
-                .with_file(true)
-                .with_filter(filter);
-            tracing_subscriber::registry().with(layer).init();
+                .with_file(true);
+            tracing_subscriber::registry()
+                .with(filter)
+                .with(layer)
+                .init();
         }
         LogFormat::Json | LogFormat::DatadogJson => {
             // DatadogJson without the Datadog backend falls back to standard JSON
             // since trace correlation requires the OpenTelemetry layer.
-            let layer = fmt::layer()
-                .with_writer(std::io::stdout)
-                .json()
-                .with_filter(filter);
-            tracing_subscriber::registry().with(layer).init();
+            let layer = fmt::layer().with_writer(std::io::stdout).json();
+            tracing_subscriber::registry()
+                .with(filter)
+                .with(layer)
+                .init();
         }
         LogFormat::Compact => {
-            let layer = fmt::layer()
-                .with_writer(std::io::stdout)
-                .compact()
-                .with_filter(filter);
-            tracing_subscriber::registry().with(layer).init();
+            let layer = fmt::layer().with_writer(std::io::stdout).compact();
+            tracing_subscriber::registry()
+                .with(filter)
+                .with(layer)
+                .init();
         }
     }
 
