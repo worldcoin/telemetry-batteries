@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use chrono::Utc;
 use opentelemetry::trace::TracerProvider;
 #[expect(
     deprecated,
@@ -14,6 +13,8 @@ use opentelemetry_sdk::trace::{
 };
 use serde::Serializer;
 use serde::ser::SerializeMap;
+use time::OffsetDateTime;
+use time::macros::format_description;
 use tracing::{Event, Subscriber};
 use tracing_serde::AsSerde;
 use tracing_subscriber::fmt::format::Writer;
@@ -199,8 +200,10 @@ where
                 serde_json::Serializer::new(WriteAdapter::new(&mut writer));
             let mut serializer = serializer.serialize_map(None)?;
 
-            serializer
-                .serialize_entry("timestamp", &Utc::now().to_rfc3339())?;
+            serializer.serialize_entry(
+                "timestamp",
+                &format_timestamp(OffsetDateTime::now_utc()),
+            )?;
             serializer.serialize_entry("level", &meta.level().as_serde())?;
             serializer.serialize_entry("target", meta.target())?;
 
@@ -246,6 +249,30 @@ where
     }
 }
 
+/// Formats a UTC timestamp as RFC 3339 with a `+00:00` offset and a fractional
+/// second of 0, 3, 6 or 9 digits, whichever is the shortest that is lossless.
+fn format_timestamp(timestamp: OffsetDateTime) -> String {
+    let format =
+        format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
+    let mut formatted = timestamp
+        .format(&format)
+        .expect("a UTC timestamp always matches the format description");
+
+    let nanos = timestamp.nanosecond();
+    if nanos.is_multiple_of(1_000_000) {
+        if nanos != 0 {
+            formatted.push_str(&format!(".{:03}", nanos / 1_000_000));
+        }
+    } else if nanos.is_multiple_of(1_000) {
+        formatted.push_str(&format!(".{:06}", nanos / 1_000));
+    } else {
+        formatted.push_str(&format!(".{nanos:09}"));
+    }
+
+    formatted.push_str("+00:00");
+    formatted
+}
+
 #[cfg(test)]
 mod tests {
     use std::io;
@@ -255,7 +282,10 @@ mod tests {
     use tracing_subscriber::fmt::MakeWriter;
     use tracing_subscriber::prelude::*;
 
-    use super::DatadogFormat;
+    use time::OffsetDateTime;
+    use time::macros::datetime;
+
+    use super::{DatadogFormat, format_timestamp};
 
     #[derive(Clone)]
     struct BufWriter(Arc<Mutex<Vec<u8>>>);
@@ -290,6 +320,49 @@ mod tests {
     fn parse_log_line(raw: &str) -> serde_json::Value {
         let line = raw.trim();
         serde_json::from_str(line).expect("log line is not valid JSON")
+    }
+
+    #[test]
+    fn test_format_timestamp_uses_shortest_lossless_fraction() {
+        assert_eq!(
+            format_timestamp(datetime!(2026-11-17 10:20:30 UTC)),
+            "2026-11-17T10:20:30+00:00"
+        );
+        assert_eq!(
+            format_timestamp(datetime!(2026-11-17 10:20:30.120 UTC)),
+            "2026-11-17T10:20:30.120+00:00"
+        );
+        assert_eq!(
+            format_timestamp(datetime!(2026-11-17 10:20:30.000_123 UTC)),
+            "2026-11-17T10:20:30.000123+00:00"
+        );
+        assert_eq!(
+            format_timestamp(datetime!(2026-11-17 10:20:30.000_000_123 UTC)),
+            "2026-11-17T10:20:30.000000123+00:00"
+        );
+    }
+
+    #[test]
+    fn test_event_timestamp_is_rfc3339_utc() {
+        let buf = BufWriter::new();
+        let layer = fmt::Layer::new()
+            .json()
+            .event_format(DatadogFormat)
+            .with_writer(buf.clone());
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!("timestamped");
+        });
+
+        let log = parse_log_line(&buf.contents());
+        let timestamp = log["timestamp"].as_str().unwrap();
+        assert!(timestamp.ends_with("+00:00"));
+        OffsetDateTime::parse(
+            timestamp,
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("timestamp is valid RFC 3339");
     }
 
     #[test]
